@@ -8,8 +8,8 @@ and maintenance/incident handling.
 ## 🛠️ Tech Stack
 - **Backend:** Java Spring Boot REST API
 - **Frontend:** React.js
-- **Database:** MySQL
-- **Auth:** OAuth 2.0 (Google)
+- **Database:** MongoDB
+- **Auth:** Local email/password auth with Google OAuth support
 
 ## 👥 Team Members & Modules
 
@@ -24,15 +24,15 @@ and maintenance/incident handling.
 
 ### Backend
 ```bash
-cd backend
-mvn spring-boot:run
+cd backend/smart-campus-api
+./mvnw spring-boot:run
 ```
 
 ### Frontend
 ```bash
-cd frontend
+cd frontend/smart-campus-ui
 npm install
-npm start
+npm run dev
 ```
 
 ## 📁 Repository Structure
