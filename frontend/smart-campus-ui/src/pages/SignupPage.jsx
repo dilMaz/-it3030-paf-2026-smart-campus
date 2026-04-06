@@ -22,15 +22,15 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      const response = await axios.post("http://localhost:8080/api/auth/register", {
+      await axios.post("http://localhost:8080/api/auth/register", {
         name,
         email,
         password,
         confirmPassword,
       })
 
-      localStorage.setItem("smartCampusUser", JSON.stringify(response.data))
-      navigate("/dashboard")
+      localStorage.removeItem("smartCampusUser")
+      navigate("/login")
     } catch (registerError) {
       setError(registerError?.response?.data?.error || "Account creation failed")
     } finally {
@@ -134,7 +134,7 @@ export default function SignupPage() {
         <p style={{ textAlign: "center", color: "#888", fontSize: "14px", margin: 0 }}>
           Already have an account?{" "}
           <span
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/login")}
             style={{ color: "#667eea", fontWeight: "600", cursor: "pointer" }}>
             Login
           </span>

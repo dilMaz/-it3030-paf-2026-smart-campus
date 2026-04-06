@@ -31,9 +31,13 @@ public class NotificationService {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
-    public Notification markAsRead(String notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
+    public Notification getNotificationById(String notificationId) {
+        return notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notification not found"));
+    }
+
+    public Notification markAsRead(String notificationId) {
+        Notification notification = getNotificationById(notificationId);
         notification.setRead(true);
         return notificationRepository.save(notification);
     }

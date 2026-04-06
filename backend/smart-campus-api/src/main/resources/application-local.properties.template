@@ -1,0 +1,6 @@
+# Copy this file to application-local.properties (or set these in environment variables directly).
+# Do not commit real secrets.
+MONGODB_URI=<your_mongodb_connection_string>
+JWT_SECRET=<your_jwt_secret>
+GOOGLE_CLIENT_ID=<your_google_client_id>
+GOOGLE_CLIENT_SECRET=<your_google_client_secret>

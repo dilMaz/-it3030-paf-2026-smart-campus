@@ -7,29 +7,16 @@ function NotificationsPage() {
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
-  const currentUserId = (() => {
-    try {
-      const currentUser = JSON.parse(localStorage.getItem('smartCampusUser') || 'null')
-      return currentUser?.id || null
-    } catch {
-      return null
-    }
-  })()
-
   useEffect(() => {
-    if (!currentUserId) {
-      return
-    }
-
-    axios.get(`http://localhost:8080/api/notifications/${currentUserId}`)
+    axios.get('http://localhost:8080/api/notifications/me', { withCredentials: true })
       .then(res => setNotifications(res.data))
       .catch(() => setError('Unable to load notifications right now.'))
-  }, [currentUserId])
+  }, [])
 
-  const message = !currentUserId ? 'Please login first to view notifications.' : error
+  const message = error
 
   const markAsRead = (id) => {
-    axios.patch(`http://localhost:8080/api/notifications/${id}/read`)
+    axios.patch(`http://localhost:8080/api/notifications/${id}/read`, {}, { withCredentials: true })
       .then(() => {
         setNotifications(current => current.map(notification => (
           notification.id === id ? { ...notification, read: true } : notification
@@ -38,7 +25,7 @@ function NotificationsPage() {
   }
 
   const deleteNotification = (id) => {
-    axios.delete(`http://localhost:8080/api/notifications/${id}`)
+    axios.delete(`http://localhost:8080/api/notifications/${id}`, { withCredentials: true })
       .then(() => {
         setNotifications(current => current.filter(notification => notification.id !== id))
       })

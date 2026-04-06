@@ -62,6 +62,7 @@ export default function Dashboard() {
   const displayName = currentUser?.name || currentUser?.email || "User"
   const displayEmail = currentUser?.email || ""
   const displayInitial = displayName.charAt(0).toUpperCase()
+  const isAdmin = Array.isArray(currentUser?.roles) && currentUser.roles.includes("ADMIN")
 
   const menuItems = [
     { icon: "🏠", label: "Dashboard", active: true },
@@ -69,6 +70,7 @@ export default function Dashboard() {
     { icon: "📅", label: "Bookings" },
     { icon: "🔧", label: "Tickets" },
     { icon: "🔔", label: "Notifications", action: () => navigate("/notifications") },
+    ...(isAdmin ? [{ icon: "🛡️", label: "Admin Roles", action: () => navigate("/admin/users") }] : []),
     { icon: "👤", label: "Profile" },
   ]
 
@@ -122,7 +124,10 @@ export default function Dashboard() {
         </nav>
 
         <div
-          onClick={() => navigate("/")}
+          onClick={() => {
+            localStorage.removeItem("smartCampusUser")
+            navigate("/")
+          }}
           style={{
             display: "flex", alignItems: "center", gap: "12px",
             padding: "13px 20px", cursor: "pointer", color: "rgba(255,255,255,0.8)"

@@ -3,6 +3,7 @@ package com.smartcampus.smart_campus_api.controller;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +34,7 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private static final Set<String> ALLOWED_ROLES = Set.of("USER", "ADMIN", "TECHNICIAN", "MANAGER");
 
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
@@ -106,9 +108,15 @@ public class AuthController {
 
     @GetMapping("/users")
     public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal OAuth2User principal) {
-        if (principal == null) {
+        Optional<User> currentUser = resolveCurrentUser(principal);
+        if (currentUser.isEmpty()) {
             return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
         }
+
+        if (!isAdmin(currentUser.get())) {
+            return ResponseEntity.status(403).body(Map.of("error", "Only admins can view all users"));
+        }
+
         return ResponseEntity.ok(userRepository.findAll());
     }
 
@@ -118,8 +126,18 @@ public class AuthController {
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal OAuth2User principal) {
 
-        if (principal == null) {
+        Optional<User> currentUser = resolveCurrentUser(principal);
+        if (currentUser.isEmpty()) {
             return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+        }
+
+        if (!isAdmin(currentUser.get())) {
+            return ResponseEntity.status(403).body(Map.of("error", "Only admins can update roles"));
+        }
+
+        String newRole = body.get("role");
+        if (newRole == null || !ALLOWED_ROLES.contains(newRole)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid role"));
         }
 
         Optional<User> optionalUser = userRepository.findById(id);
@@ -128,7 +146,6 @@ public class AuthController {
         }
 
         User user = optionalUser.get();
-        String newRole = body.get("role");
         user.setRoles(List.of(newRole));
         userRepository.save(user);
 
@@ -138,5 +155,22 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
+
+    private Optional<User> resolveCurrentUser(OAuth2User principal) {
+        if (principal == null) {
+            return Optional.empty();
+        }
+
+        String email = principal.getAttribute("email");
+        if (email == null || email.isBlank()) {
+            return Optional.empty();
+        }
+
+        return userRepository.findByEmail(email);
+    }
+
+    private boolean isAdmin(User user) {
+        return user.getRoles() != null && user.getRoles().contains("ADMIN");
     }
 }
