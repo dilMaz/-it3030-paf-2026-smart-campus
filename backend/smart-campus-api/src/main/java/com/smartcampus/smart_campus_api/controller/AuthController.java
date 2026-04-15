@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -34,6 +35,8 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    @Value("${app.admin.email:}")
+    private String adminEmail;
     private static final Set<String> ALLOWED_ROLES = Set.of("USER", "ADMIN", "TECHNICIAN", "MANAGER");
 
     @GetMapping("/me")
@@ -42,23 +45,31 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
         }
 
-        String email = principal.getAttribute("email");
+        String email = normalizeEmail(principal.getAttribute("email"));
         String name = principal.getAttribute("name");
         String picture = principal.getAttribute("picture");
         String googleId = principal.getAttribute("sub");
+
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Google account does not provide an email"));
+        }
 
         Optional<User> existingUser = userRepository.findByEmail(email);
 
         User user;
         if (existingUser.isPresent()) {
             user = existingUser.get();
+            if (isBootstrapAdminEmail(email) && !isAdmin(user)) {
+                user.setRoles(List.of("ADMIN"));
+                user = userRepository.save(user);
+            }
         } else {
             user = new User();
             user.setEmail(email);
             user.setName(name);
             user.setPicture(picture);
             user.setGoogleId(googleId);
-            user.setRoles(List.of("USER"));
+            user.setRoles(resolveInitialRoles(email));
             user = userRepository.save(user);
         }
 
@@ -67,8 +78,10 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+        String normalizedEmail = normalizeEmail(request.email());
+
         if (request.name() == null || request.name().isBlank()
-                || request.email() == null || request.email().isBlank()
+                || normalizedEmail == null || normalizedEmail.isBlank()
                 || request.password() == null || request.password().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Name, email, and password are required"));
         }
@@ -77,15 +90,15 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Passwords do not match"));
         }
 
-        if (userRepository.findByEmail(request.email()).isPresent()) {
+        if (userRepository.findByEmail(normalizedEmail).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Email already registered"));
         }
 
         User user = new User();
         user.setName(request.name().trim());
-        user.setEmail(request.email().trim().toLowerCase());
+        user.setEmail(normalizedEmail);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setRoles(List.of("USER"));
+        user.setRoles(resolveInitialRoles(normalizedEmail));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(userRepository.save(user));
     }
@@ -97,7 +110,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Email and password are required"));
         }
 
-        Optional<User> optionalUser = userRepository.findByEmail(request.email().trim().toLowerCase());
+        Optional<User> optionalUser = userRepository.findByEmail(normalizeEmail(request.email()));
         if (optionalUser.isEmpty() || optionalUser.get().getPasswordHash() == null
                 || !passwordEncoder.matches(request.password(), optionalUser.get().getPasswordHash())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid email or password"));
@@ -162,12 +175,36 @@ public class AuthController {
             return Optional.empty();
         }
 
-        String email = principal.getAttribute("email");
+        String email = normalizeEmail(principal.getAttribute("email"));
         if (email == null || email.isBlank()) {
             return Optional.empty();
         }
 
         return userRepository.findByEmail(email);
+    }
+
+    private List<String> resolveInitialRoles(String email) {
+        if (isBootstrapAdminEmail(email)) {
+            return List.of("ADMIN");
+        }
+
+        return List.of("USER");
+    }
+
+    private boolean isBootstrapAdminEmail(String email) {
+        String configuredAdminEmail = normalizeEmail(adminEmail);
+        String normalizedEmail = normalizeEmail(email);
+
+        return configuredAdminEmail != null && !configuredAdminEmail.isBlank()
+                && normalizedEmail != null && normalizedEmail.equals(configuredAdminEmail);
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+
+        return email.trim().toLowerCase();
     }
 
     private boolean isAdmin(User user) {

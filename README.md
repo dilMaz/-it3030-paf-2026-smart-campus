@@ -30,6 +30,7 @@ set MONGODB_URI=<your_mongodb_connection_string>
 set JWT_SECRET=<your_jwt_secret>
 set GOOGLE_CLIENT_ID=<your_google_client_id>
 set GOOGLE_CLIENT_SECRET=<your_google_client_secret>
+set APP_ADMIN_EMAIL=<admin_email_to_bootstrap>
 ./mvnw spring-boot:run
 ```
 
@@ -40,8 +41,11 @@ $env:MONGODB_URI="<your_mongodb_connection_string>"
 $env:JWT_SECRET="<your_jwt_secret>"
 $env:GOOGLE_CLIENT_ID="<your_google_client_id>"
 $env:GOOGLE_CLIENT_SECRET="<your_google_client_secret>"
+$env:APP_ADMIN_EMAIL="<admin_email_to_bootstrap>"
 ./mvnw.cmd spring-boot:run
 ```
+
+If `APP_ADMIN_EMAIL` is set, that email is automatically created or promoted as `ADMIN` the first time it registers or signs in through Google OAuth.
 
 Google OAuth redirect URI:
 ```text

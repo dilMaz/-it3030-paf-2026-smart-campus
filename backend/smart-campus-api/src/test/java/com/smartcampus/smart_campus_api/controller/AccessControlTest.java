@@ -4,7 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -13,10 +15,14 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 import com.smartcampus.smart_campus_api.config.SecurityConfig;
 import com.smartcampus.smart_campus_api.model.Notification;
@@ -26,6 +32,7 @@ import com.smartcampus.smart_campus_api.service.NotificationService;
 
 @WebMvcTest(controllers = { AuthController.class, NotificationController.class })
 @Import(SecurityConfig.class)
+@TestPropertySource(properties = "app.admin.email=admin@campus.com")
 class AccessControlTest {
 
     @Autowired
@@ -79,6 +86,38 @@ class AccessControlTest {
         mockMvc.perform(patch("/api/notifications/n-1/read")
                         .with(oauth2Login().attributes(attrs -> attrs.put("email", "user1@campus.com"))))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void registerConfiguredAdminEmailCreatesAdminUser() throws Exception {
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"name\":\"Admin User\"," +
+                                "\"email\":\"admin@campus.com\"," +
+                                "\"password\":\"Password123!\"," +
+                                "\"confirmPassword\":\"Password123!\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("admin@campus.com"))
+                .andExpect(jsonPath("$.roles[0]").value("ADMIN"));
+    }
+
+    @Test
+    void registerRegularEmailKeepsUserRole() throws Exception {
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"name\":\"Regular User\"," +
+                                "\"email\":\"student@campus.com\"," +
+                                "\"password\":\"Password123!\"," +
+                                "\"confirmPassword\":\"Password123!\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("student@campus.com"))
+                .andExpect(jsonPath("$.roles[0]").value("USER"));
     }
 
     private User user(String id, String email, List<String> roles) {
