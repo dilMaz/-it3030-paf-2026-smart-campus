@@ -1,305 +1,211 @@
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import axios from "axios"
+import { motion } from 'framer-motion'
+import { Bell, CalendarDays, ClipboardList, Ticket, Users, Wrench } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import StatusBadge from '../components/ui/StatusBadge'
+import { useAuth } from '../hooks/useAuth'
+import { notificationService } from '../services/notificationService'
+import { toRelativeTime } from '../utils/relativeTime'
 
-const stats = [
-  { icon: "🏛️", label: "Total Facilities", value: "24", color: "#667eea" },
-  { icon: "📅", label: "Active Bookings", value: "12", color: "#f093fb" },
-  { icon: "🔧", label: "Open Tickets", value: "8", color: "#f5576c" },
-  { icon: "🔔", label: "Notifications", value: "5", color: "#4facfe" },
+const allStats = [
+  { icon: Users, label: 'Active users', value: '1,284', tone: 'info', roles: ['ADMIN'] },
+  { icon: CalendarDays, label: 'Active bookings', value: '42', tone: 'pending', roles: ['ADMIN', 'USER'] },
+  { icon: Ticket, label: 'Open tickets', value: '18', tone: 'error', roles: ['ADMIN', 'TECHNICIAN'] },
+  { icon: Bell, label: 'Unread notifications', value: '7', tone: 'success', roles: ['ADMIN', 'USER', 'TECHNICIAN'] },
 ]
 
 const recentBookings = [
-  { id: 1, room: "Lecture Hall A", date: "2026-04-06", time: "09:00 - 11:00", status: "APPROVED" },
-  { id: 2, room: "Lab 3", date: "2026-04-07", time: "13:00 - 15:00", status: "PENDING" },
-  { id: 3, room: "Meeting Room 2", date: "2026-04-08", time: "10:00 - 12:00", status: "REJECTED" },
+  { id: 1, room: 'Lecture Hall A', time: 'Today, 09:00-11:00', status: 'APPROVED' },
+  { id: 2, room: 'Lab 3', time: 'Tomorrow, 13:00-15:00', status: 'PENDING' },
+  { id: 3, room: 'Meeting Room 2', time: 'Mon, 10:00-12:00', status: 'REJECTED' },
 ]
 
 const recentTickets = [
-  { id: 1, title: "Projector not working", location: "Hall B", priority: "HIGH", status: "OPEN" },
-  { id: 2, title: "AC malfunction", location: "Lab 1", priority: "MEDIUM", status: "IN_PROGRESS" },
-  { id: 3, title: "Door lock broken", location: "Room 204", priority: "LOW", status: "RESOLVED" },
+  { id: 1, title: 'Projector not working', location: 'Hall B', status: 'OPEN' },
+  { id: 2, title: 'AC malfunction', location: 'Lab 1', status: 'IN_PROGRESS' },
+  { id: 3, title: 'Door lock broken', location: 'Room 204', status: 'RESOLVED' },
 ]
 
-const statusColor = {
-  APPROVED: { bg: "#e6f4ea", color: "#2d7a3a" },
-  PENDING: { bg: "#fff8e1", color: "#f9a825" },
-  REJECTED: { bg: "#fce8e6", color: "#c62828" },
-  OPEN: { bg: "#fce8e6", color: "#c62828" },
-  IN_PROGRESS: { bg: "#e8f0fe", color: "#1a73e8" },
-  RESOLVED: { bg: "#e6f4ea", color: "#2d7a3a" },
-  HIGH: { bg: "#fce8e6", color: "#c62828" },
-  MEDIUM: { bg: "#fff8e1", color: "#f9a825" },
-  LOW: { bg: "#e6f4ea", color: "#2d7a3a" },
+function statusTone(status) {
+  if (['APPROVED', 'RESOLVED'].includes(status)) return 'success'
+  if (['PENDING', 'IN_PROGRESS'].includes(status)) return 'pending'
+  if (['REJECTED', 'OPEN'].includes(status)) return 'error'
+  return 'info'
 }
 
 export default function Dashboard() {
-  const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("smartCampusUser") || "null")
-    } catch {
-      return null
-    }
-  })
+  const { user, roles } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [previewNotifications, setPreviewNotifications] = useState([])
+
+  const role = useMemo(() => {
+    if (roles.includes('ADMIN')) return 'ADMIN'
+    if (roles.includes('TECHNICIAN')) return 'TECHNICIAN'
+    return 'USER'
+  }, [roles])
+
+  const visibleStats = useMemo(
+    () => allStats.filter((stat) => stat.roles.includes(role)),
+    [role],
+  )
 
   useEffect(() => {
-    if (currentUser) {
-      return
-    }
+    let active = true
 
-    axios.get('http://localhost:8080/api/auth/me', { withCredentials: true })
-      .then(res => {
-        setCurrentUser(res.data)
-        localStorage.setItem('smartCampusUser', JSON.stringify(res.data))
+    notificationService.getMyNotifications()
+      .then((items) => {
+        if (!active) return
+        const sorted = Array.isArray(items) ? items : []
+        setPreviewNotifications(sorted.slice(0, 3))
       })
       .catch(() => {
-        navigate('/')
+        if (!active) return
+        setPreviewNotifications([])
       })
-  }, [currentUser, navigate])
+      .finally(() => {
+        if (active) {
+          setLoading(false)
+        }
+      })
 
-  const displayName = currentUser?.name || currentUser?.email || "User"
-  const displayEmail = currentUser?.email || ""
-  const displayInitial = displayName.charAt(0).toUpperCase()
-  const isAdmin = Array.isArray(currentUser?.roles) && currentUser.roles.includes("ADMIN")
-
-  const menuItems = [
-    { icon: "🏠", label: "Dashboard", active: true },
-    { icon: "🏛️", label: "Facilities" },
-    { icon: "📅", label: "Bookings" },
-    { icon: "🔧", label: "Tickets" },
-    { icon: "🔔", label: "Notifications", action: () => navigate("/notifications") },
-    ...(isAdmin ? [{ icon: "🛡️", label: "Admin Roles", action: () => navigate("/admin/users") }] : []),
-    { icon: "👤", label: "Profile" },
-  ]
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "Segoe UI, sans-serif", background: "#f0f2f5" }}>
+    <div className="space-y-6">
+      <motion.section
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 p-6 text-white shadow-soft"
+      >
+        <p className="text-sm text-blue-100">Overview</p>
+        <h2 className="mt-1 font-display text-2xl font-bold">Welcome back, {user?.name || user?.email || 'Campus User'}</h2>
+        <p className="mt-2 max-w-2xl text-sm text-blue-100">
+          You are signed in as <span className="font-semibold">{role}</span>. Focus on critical updates and actions below.
+        </p>
+      </motion.section>
 
-      {/* Sidebar */}
-      <div style={{
-        width: sidebarOpen ? "240px" : "70px",
-        background: "linear-gradient(180deg, #667eea 0%, #764ba2 100%)",
-        transition: "width 0.3s",
-        display: "flex",
-        flexDirection: "column",
-        padding: "20px 0",
-        boxShadow: "4px 0 15px rgba(0,0,0,0.1)"
-      }}>
-        <div style={{
-          display: "flex", alignItems: "center", gap: "12px",
-          padding: "0 20px 25px", borderBottom: "1px solid rgba(255,255,255,0.2)"
-        }}>
-          <span style={{ fontSize: "28px" }}>🎓</span>
-          {sidebarOpen && (
-            <div>
-              <div style={{ color: "white", fontWeight: "700", fontSize: "16px" }}>Smart Campus</div>
-              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px" }}>Operations Hub</div>
-            </div>
-          )}
-        </div>
+      <section>
+        <h3 className="font-display text-xl font-bold text-slate-900">Summary</h3>
+        <p className="text-sm text-slate-600">Quick snapshot of today&apos;s operations.</p>
 
-        <nav style={{ marginTop: "20px", flex: 1 }}>
-          {menuItems.map((item, i) => (
-            <div
-              key={i}
-              onClick={item.action}
-              style={{
-                display: "flex", alignItems: "center", gap: "12px",
-                padding: "13px 20px", cursor: "pointer",
-                background: item.active ? "rgba(255,255,255,0.2)" : "transparent",
-                borderLeft: item.active ? "4px solid white" : "4px solid transparent",
-                transition: "all 0.2s",
-                color: "white"
-              }}>
-              <span style={{ fontSize: "20px" }}>{item.icon}</span>
-              {sidebarOpen && (
-                <span style={{ fontSize: "14px", fontWeight: item.active ? "600" : "400" }}>
-                  {item.label}
-                </span>
-              )}
-            </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {visibleStats.map((stat) => (
+            <motion.article
+              key={stat.label}
+              whileHover={{ y: -3 }}
+              className="glass-panel p-4"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-slate-600">{stat.label}</p>
+                <stat.icon className="h-5 w-5 text-slate-500" />
+              </div>
+              <p className="mt-3 text-3xl font-black text-slate-900">{stat.value}</p>
+              <div className="mt-2">
+                <StatusBadge tone={stat.tone}>Live</StatusBadge>
+              </div>
+            </motion.article>
           ))}
-        </nav>
-
-        <div
-          onClick={() => {
-            localStorage.removeItem("smartCampusUser")
-            navigate("/")
-          }}
-          style={{
-            display: "flex", alignItems: "center", gap: "12px",
-            padding: "13px 20px", cursor: "pointer", color: "rgba(255,255,255,0.8)"
-          }}>
-          <span style={{ fontSize: "20px" }}>🚪</span>
-          {sidebarOpen && <span style={{ fontSize: "14px" }}>Logout</span>}
         </div>
-      </div>
+      </section>
 
-      {/* Main Content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-
-        {/* Topbar */}
-        <div style={{
-          background: "white", padding: "15px 25px",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.05)"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              style={{
-                background: "none", border: "none", fontSize: "20px",
-                cursor: "pointer", color: "#667eea"
-              }}>
-              ☰
-            </button>
-            <h2 style={{ margin: 0, color: "#333", fontSize: "20px" }}>Dashboard</h2>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div
-              onClick={() => navigate("/notifications")}
-              style={{
-                position: "relative", cursor: "pointer",
-                background: "#f0f2f5", borderRadius: "50%",
-                width: "40px", height: "40px",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "18px"
-              }}>
-              🔔
-              <span style={{
-                position: "absolute", top: "-2px", right: "-2px",
-                background: "#f5576c", color: "white",
-                borderRadius: "50%", width: "16px", height: "16px",
-                fontSize: "10px", display: "flex", alignItems: "center", justifyContent: "center"
-              }}>5</span>
-            </div>
-            <div style={{
-              display: "flex", alignItems: "center", gap: "10px",
-              background: "#f0f2f5", borderRadius: "25px", padding: "8px 15px"
-            }}>
-              <div style={{
-                width: "32px", height: "32px", borderRadius: "50%",
-                background: "linear-gradient(135deg, #667eea, #764ba2)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "white", fontWeight: "700", fontSize: "14px"
-              }}>{displayInitial}</div>
-              <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-                <span style={{ color: "#333", fontWeight: "600", fontSize: "14px" }}>{displayName}</span>
-                {displayEmail && (
-                  <span style={{ color: "#888", fontSize: "12px" }}>{displayEmail}</span>
-                )}
+      <section className="grid gap-4 lg:grid-cols-3">
+        {role === 'ADMIN' ? (
+          <article className="glass-panel p-5 lg:col-span-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h4 className="font-display text-lg font-bold text-slate-900">Administrator Actions</h4>
+                <p className="text-sm text-slate-600">Manage users, permissions, and system-level controls.</p>
               </div>
+              <Link
+                to="/admin/users"
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Open User Role Management
+              </Link>
             </div>
-          </div>
-        </div>
+          </article>
+        ) : null}
 
-        {/* Content */}
-        <div style={{ padding: "25px", flex: 1 }}>
-
-          {/* Welcome */}
-          <div style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            borderRadius: "15px", padding: "25px 30px",
-            marginBottom: "25px", color: "white"
-          }}>
-            <h2 style={{ margin: "0 0 5px" }}>👋 Welcome back, {displayName}!</h2>
-            <p style={{ margin: 0, opacity: 0.85, fontSize: "14px" }}>
-              Here's what's happening at Smart Campus today.
-            </p>
-          </div>
-
-          {/* Stats */}
-          <div style={{
-            display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
-            gap: "20px", marginBottom: "25px"
-          }}>
-            {stats.map((stat, i) => (
-              <div key={i} style={{
-                background: "white", borderRadius: "15px",
-                padding: "20px", boxShadow: "0 2px 15px rgba(0,0,0,0.05)",
-                display: "flex", alignItems: "center", gap: "15px"
-              }}>
-                <div style={{
-                  width: "50px", height: "50px", borderRadius: "12px",
-                  background: stat.color + "20",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "24px"
-                }}>{stat.icon}</div>
-                <div>
-                  <div style={{ fontSize: "24px", fontWeight: "700", color: "#333" }}>
-                    {stat.value}
-                  </div>
-                  <div style={{ fontSize: "12px", color: "#888" }}>{stat.label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Tables */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-
-            {/* Recent Bookings */}
-            <div style={{
-              background: "white", borderRadius: "15px",
-              padding: "20px", boxShadow: "0 2px 15px rgba(0,0,0,0.05)"
-            }}>
-              <h3 style={{ margin: "0 0 20px", color: "#333", fontSize: "16px" }}>
-                📅 Recent Bookings
-              </h3>
-              {recentBookings.map(b => (
-                <div key={b.id} style={{
-                  display: "flex", justifyContent: "space-between",
-                  alignItems: "center", padding: "12px 0",
-                  borderBottom: "1px solid #f0f2f5"
-                }}>
-                  <div>
-                    <div style={{ fontWeight: "600", color: "#333", fontSize: "14px" }}>{b.room}</div>
-                    <div style={{ color: "#888", fontSize: "12px" }}>{b.date} • {b.time}</div>
-                  </div>
-                  <span style={{
-                    padding: "4px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "600",
-                    background: statusColor[b.status].bg, color: statusColor[b.status].color
-                  }}>{b.status}</span>
-                </div>
-              ))}
+        {(role === 'ADMIN' || role === 'USER') ? (
+          <article className="glass-panel p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <CalendarDays className="h-4.5 w-4.5 text-blue-600" />
+              <h4 className="font-display text-lg font-bold text-slate-900">Recent Bookings</h4>
             </div>
-
-            {/* Recent Tickets */}
-            <div style={{
-              background: "white", borderRadius: "15px",
-              padding: "20px", boxShadow: "0 2px 15px rgba(0,0,0,0.05)"
-            }}>
-              <h3 style={{ margin: "0 0 20px", color: "#333", fontSize: "16px" }}>
-                🔧 Recent Tickets
-              </h3>
-              {recentTickets.map(t => (
-                <div key={t.id} style={{
-                  display: "flex", justifyContent: "space-between",
-                  alignItems: "center", padding: "12px 0",
-                  borderBottom: "1px solid #f0f2f5"
-                }}>
-                  <div>
-                    <div style={{ fontWeight: "600", color: "#333", fontSize: "14px" }}>{t.title}</div>
-                    <div style={{ color: "#888", fontSize: "12px" }}>
-                      📍 {t.location} •{" "}
-                      <span style={{
-                        color: statusColor[t.priority].color,
-                        fontWeight: "600"
-                      }}>{t.priority}</span>
+            <div className="space-y-3">
+              {recentBookings.map((booking) => (
+                <div key={booking.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{booking.room}</p>
+                      <p className="text-xs text-slate-500">{booking.time}</p>
                     </div>
+                    <StatusBadge tone={statusTone(booking.status)}>{booking.status}</StatusBadge>
                   </div>
-                  <span style={{
-                    padding: "4px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "600",
-                    background: statusColor[t.status].bg, color: statusColor[t.status].color
-                  }}>{t.status}</span>
                 </div>
               ))}
             </div>
+          </article>
+        ) : null}
+
+        {(role === 'ADMIN' || role === 'TECHNICIAN') ? (
+          <article className="glass-panel p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Wrench className="h-4.5 w-4.5 text-blue-600" />
+              <h4 className="font-display text-lg font-bold text-slate-900">Recent Tickets</h4>
+            </div>
+            <div className="space-y-3">
+              {recentTickets.map((ticket) => (
+                <div key={ticket.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{ticket.title}</p>
+                      <p className="text-xs text-slate-500">{ticket.location}</p>
+                    </div>
+                    <StatusBadge tone={statusTone(ticket.status)}>{ticket.status}</StatusBadge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        ) : null}
+
+        <article className="glass-panel p-5">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-4.5 w-4.5 text-blue-600" />
+              <h4 className="font-display text-lg font-bold text-slate-900">Notification Preview</h4>
+            </div>
+            <Link to="/notifications" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
+              View all
+            </Link>
           </div>
-        </div>
-      </div>
+
+          {loading ? (
+            <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">Loading notifications...</p>
+          ) : null}
+
+          {!loading && previewNotifications.length === 0 ? (
+            <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No notifications yet.</p>
+          ) : null}
+
+          {!loading && previewNotifications.length > 0 ? (
+            <div className="space-y-2">
+              {previewNotifications.map((notification) => (
+                <div key={notification.id} className={`rounded-xl border p-3 ${notification.read ? 'border-slate-200 bg-white' : 'border-blue-100 bg-blue-50/70'}`}>
+                  <p className={`text-sm ${notification.read ? 'text-slate-600' : 'font-semibold text-slate-900'}`}>
+                    {notification.message}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">{toRelativeTime(notification.createdAt)}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </article>
+      </section>
     </div>
   )
 }

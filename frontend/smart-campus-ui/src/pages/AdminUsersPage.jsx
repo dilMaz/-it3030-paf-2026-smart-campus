@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import { motion } from 'framer-motion'
+import { ShieldCheck, UserCog } from 'lucide-react'
+import toast from 'react-hot-toast'
+import StatusBadge from '../components/ui/StatusBadge'
+import LoadingSpinner from '../components/ui/LoadingSpinner'
+import api from '../services/api'
 
 const roleOptions = ['USER', 'ADMIN', 'TECHNICIAN', 'MANAGER']
 
 export default function AdminUsersPage() {
-  const navigate = useNavigate()
   const [users, setUsers] = useState([])
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(true)
   const [savingUserId, setSavingUserId] = useState('')
 
@@ -23,7 +25,7 @@ export default function AdminUsersPage() {
   const fetchUsers = () => {
     setLoading(true)
     setError('')
-    axios.get('http://localhost:8080/api/auth/users', { withCredentials: true })
+    api.get('/api/auth/users')
       .then((response) => {
         setUsers(response.data)
         setError('')
@@ -37,7 +39,27 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => {
-    fetchUsers()
+    let active = true
+
+    api.get('/api/auth/users')
+      .then((response) => {
+        if (!active) return
+        setUsers(response.data)
+        setError('')
+      })
+      .catch((requestError) => {
+        if (!active) return
+        setError(requestError?.response?.data?.error || 'Unable to load users list right now.')
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
   }, [])
 
   const updateRole = (userId, newRole) => {
@@ -49,24 +71,21 @@ export default function AdminUsersPage() {
 
     setSavingUserId(userId)
     setError('')
-    setSuccess('')
 
-    axios.patch(
-      `http://localhost:8080/api/auth/users/${userId}/role`,
+    api.patch(
+      `/api/auth/users/${userId}/role`,
       { role: newRole },
-      { withCredentials: true }
     )
       .then((response) => {
         setUsers((current) => current.map((u) => (
           u.id === userId ? response.data : u
         )))
-        setSuccess(`✓ Role updated to ${newRole} successfully`)
-        setTimeout(() => setSuccess(''), 3500)
+        toast.success(`Role updated to ${newRole}`)
       })
       .catch((requestError) => {
         const errorMsg = requestError?.response?.data?.error || 'Unable to update user role.'
-        setError(`✗ ${errorMsg}`)
-        setTimeout(() => setError(''), 5000)
+        setError(errorMsg)
+        toast.error(errorMsg)
       })
       .finally(() => {
         setSavingUserId('')
@@ -74,176 +93,124 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', padding: '28px', fontFamily: 'Segoe UI, sans-serif' }}>
-      <div style={{
-        background: 'white',
-        borderRadius: '14px',
-        padding: '20px 22px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '16px'
-      }}>
+    <div className="space-y-5">
+      <div className="glass-panel p-5">
         <div>
-          <h1 style={{ margin: 0, color: '#1f2937', fontSize: '24px' }}>🛡️ Admin Role Management</h1>
-          <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: '14px' }}>Manage user roles and permissions</p>
+          <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+            <ShieldCheck className="h-4 w-4" />
+            Admin Control
+          </div>
+          <h2 className="mt-3 font-display text-2xl font-bold text-slate-900">User Role Management</h2>
+          <p className="mt-1 text-sm text-slate-600">Assign permissions with clear and auditable role changes.</p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+
+        <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={() => fetchUsers()}
             disabled={loading}
-            style={{
-              border: '1px solid #d1d5db',
-              background: 'white',
-              color: '#374151',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              cursor: loading ? 'wait' : 'pointer',
-              opacity: loading ? 0.6 : 1,
-              fontWeight: '500',
-              fontSize: '14px'
-            }}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            ⟳ Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard')}
-            style={{
-              border: 'none',
-              background: '#111827',
-              color: 'white',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '14px'
-            }}
-          >
-            ← Back
+            Refresh
           </button>
         </div>
       </div>
 
-      {success && (
-        <div style={{
-          background: '#dcfce7',
-          border: '1px solid #86efac',
-          color: '#166534',
-          padding: '12px 14px',
-          borderRadius: '10px',
-          marginBottom: '14px',
-          fontSize: '14px',
-          fontWeight: '500'
-        }}>
-          {success}
-        </div>
-      )}
-
       {error && (
-        <div style={{
-          background: '#fee2e2',
-          border: '1px solid #fecaca',
-          color: '#991b1b',
-          padding: '12px 14px',
-          borderRadius: '10px',
-          marginBottom: '14px',
-          fontSize: '14px',
-          fontWeight: '500'
-        }}>
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
         </div>
       )}
 
-      <div style={{
-        background: 'white',
-        borderRadius: '14px',
-        overflow: 'hidden',
-        border: '1px solid #e5e7eb',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-      }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 2fr 2fr', background: '#111827', color: 'white', fontWeight: '600', fontSize: '14px' }}>
-          <div style={{ padding: '14px' }}>Name</div>
-          <div style={{ padding: '14px' }}>Email</div>
-          <div style={{ padding: '14px' }}>Current Role</div>
-          <div style={{ padding: '14px' }}>Change Role</div>
+      <div className="glass-panel overflow-hidden p-0">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-900 text-left text-xs uppercase tracking-wide text-slate-100">
+              <tr>
+                <th className="px-4 py-3">User</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Current Role</th>
+                <th className="px-4 py-3">Change Role</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8">
+                    <LoadingSpinner label="Loading users..." />
+                  </td>
+                </tr>
+              ) : null}
+
+              {!loading && users.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                    No users found.
+                  </td>
+                </tr>
+              ) : null}
+
+              {!loading && users.map((user) => {
+                const role = Array.isArray(user.roles) && user.roles.length > 0 ? user.roles[0] : 'USER'
+                const isCurrentUser = currentUser?.id === user.id
+                const isSaving = savingUserId === user.id
+
+                return (
+                  <motion.tr
+                    key={user.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="hover:bg-slate-50"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="inline-flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                          <UserCog className="h-4 w-4" />
+                        </span>
+                        <span className="font-semibold text-slate-900">{user.name || '-'}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{user.email || '-'}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge tone={role === 'ADMIN' ? 'info' : role === 'TECHNICIAN' ? 'pending' : 'success'}>
+                        {role}
+                      </StatusBadge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {isCurrentUser ? (
+                        <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">
+                          Your account
+                        </span>
+                      ) : (
+                        <select
+                          value={role}
+                          disabled={isSaving}
+                          onChange={(event) => updateRole(user.id, event.target.value)}
+                          className="w-full min-w-[140px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
+                        >
+                          {roleOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                  </motion.tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
-
-        {loading ? (
-          <div style={{ padding: '40px 14px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>⏳ Loading users...</div>
-        ) : users.length === 0 ? (
-          <div style={{ padding: '40px 14px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>No users found.</div>
-        ) : (
-          users.map((user) => {
-            const role = Array.isArray(user.roles) && user.roles.length > 0 ? user.roles[0] : 'USER'
-            const isCurrentUser = currentUser?.id === user.id
-            const isSaving = savingUserId === user.id
-
-            return (
-              <div key={user.id} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 2fr 2fr', borderTop: '1px solid #f3f4f6', alignItems: 'center', transition: 'background 0.2s' }}>
-                <div style={{ padding: '14px', color: '#1f2937', fontWeight: '500', fontSize: '14px' }}>
-                  {user.name || '-'}
-                </div>
-                <div style={{ padding: '14px', color: '#6b7280', fontSize: '14px' }}>{user.email || '-'}</div>
-                <div style={{ padding: '14px', fontWeight: '600', color: '#667eea', fontSize: '14px' }}>
-                  [{role}]
-                </div>
-                <div style={{ padding: '14px' }}>
-                  {isCurrentUser ? (
-                    <div style={{
-                      padding: '8px 10px',
-                      background: '#f3f4f6',
-                      color: '#6b7280',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      textAlign: 'center',
-                      fontWeight: '500'
-                    }}>
-                      (Your Account)
-                    </div>
-                  ) : (
-                    <select
-                      value={role}
-                      disabled={isSaving}
-                      onChange={(event) => updateRole(user.id, event.target.value)}
-                      style={{
-                        width: '100%',
-                        minWidth: '140px',
-                        border: isSaving ? '2px solid #667eea' : '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        padding: '8px 10px',
-                        background: isSaving ? '#f0f2f5' : 'white',
-                        color: '#111827',
-                        WebkitTextFillColor: '#111827',
-                        cursor: isSaving ? 'wait' : 'pointer',
-                        opacity: isSaving ? 0.7 : 1,
-                        fontWeight: '500',
-                        fontSize: '14px',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {roleOptions.map((option) => (
-                        <option key={option} value={option} style={{ color: '#111827', background: '#ffffff' }}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-            )
-          })
-        )}
       </div>
 
-      <div style={{ marginTop: '20px', padding: '16px 14px', background: 'rgba(102, 126, 234, 0.1)', borderRadius: '10px', fontSize: '13px', color: '#4c63b6', lineHeight: '1.5' }}>
-        <strong>ℹ️ Role Descriptions:</strong>
-        <ul style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
-          <li><strong>USER:</strong> Basic access to bookings, notifications, tickets</li>
-          <li><strong>ADMIN:</strong> Full system access, role management, all resources</li>
-          <li><strong>TECHNICIAN:</strong> Can manage and resolve maintenance tickets</li>
-          <li><strong>MANAGER:</strong> Can oversee bookings and generate reports</li>
+      <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-800">
+        <p className="font-semibold">Role descriptions</p>
+        <ul className="mt-2 space-y-1 text-blue-700">
+          <li><strong>USER:</strong> Basic access to bookings, notifications, and profile</li>
+          <li><strong>ADMIN:</strong> Full access to all modules, including role management</li>
+          <li><strong>TECHNICIAN:</strong> Ticket-focused workspace with notifications</li>
+          <li><strong>MANAGER:</strong> Reserved role for reporting and operational oversight</li>
         </ul>
       </div>
     </div>

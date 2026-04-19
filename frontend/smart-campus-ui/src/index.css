@@ -1,24 +1,33 @@
-* {
-  box-sizing: border-box;
-}
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 html,
 body,
 #root {
+  margin: 0;
   width: 100%;
   min-height: 100vh;
-  margin: 0;
 }
 
 body {
-  background: #f0f2f5;
-  color: #111827;
+  @apply font-body text-slate-900;
+}
+
+.glass-panel {
+  @apply rounded-2xl border border-white/50 bg-white/70 shadow-soft backdrop-blur;
 }

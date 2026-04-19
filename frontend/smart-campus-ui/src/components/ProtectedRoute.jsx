@@ -1,68 +1,24 @@
-import { useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
-import axios from 'axios'
+import { useAuth } from '../hooks/useAuth'
+import LoadingSpinner from './ui/LoadingSpinner'
 
 export default function ProtectedRoute({ allowedRoles }) {
-  const [checking, setChecking] = useState(true)
-  const [currentUser, setCurrentUser] = useState(null)
+  const { initializing, isAuthenticated, hasAnyRole } = useAuth()
 
-  useEffect(() => {
-    let isMounted = true
-
-    const savedUser = (() => {
-      try {
-        return JSON.parse(localStorage.getItem('smartCampusUser') || 'null')
-      } catch {
-        return null
-      }
-    })()
-
-    if (savedUser) {
-      if (isMounted) {
-        setCurrentUser(savedUser)
-        setChecking(false)
-      }
-      return () => {
-        isMounted = false
-      }
-    }
-
-    axios.get('http://localhost:8080/api/auth/me', { withCredentials: true })
-      .then((response) => {
-        if (!isMounted) {
-          return
-        }
-        setCurrentUser(response.data)
-        localStorage.setItem('smartCampusUser', JSON.stringify(response.data))
-      })
-      .catch(() => {
-        if (!isMounted) {
-          return
-        }
-        setCurrentUser(null)
-      })
-      .finally(() => {
-        if (isMounted) {
-          setChecking(false)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  if (checking) {
-    return null
+  if (initializing) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <LoadingSpinner label="Verifying session..." />
+      </div>
+    )
   }
 
-  if (!currentUser) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
 
   if (allowedRoles && allowedRoles.length > 0) {
-    const roles = Array.isArray(currentUser.roles) ? currentUser.roles : []
-    const hasAllowedRole = roles.some((role) => allowedRoles.includes(role))
+    const hasAllowedRole = hasAnyRole(allowedRoles)
     if (!hasAllowedRole) {
       return <Navigate to="/dashboard" replace />
     }

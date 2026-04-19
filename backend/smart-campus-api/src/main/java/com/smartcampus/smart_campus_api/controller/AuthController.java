@@ -8,9 +8,11 @@ import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -25,6 +27,8 @@ import com.smartcampus.smart_campus_api.dto.RegisterRequest;
 import com.smartcampus.smart_campus_api.model.User;
 import com.smartcampus.smart_campus_api.repository.UserRepository;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -166,7 +170,11 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
+    public ResponseEntity<?> logout(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Authentication authentication) {
+        new SecurityContextLogoutHandler().logout(request, response, authentication);
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 
