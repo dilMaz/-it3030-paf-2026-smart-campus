@@ -31,33 +31,43 @@ export default function Sidebar({ role = 'USER', onLogout, onNavigate, mobile = 
   const visibleItems = items.filter((item) => visibleLabels.includes(item.label))
 
   return (
-    <aside className={`${mobile ? 'flex w-full' : 'hidden w-72 lg:flex'} flex-col border-r border-white/20 bg-gradient-to-b from-blue-600 via-indigo-600 to-purple-700 px-4 py-6 text-white`}>
-      <div className="mb-8 flex items-center gap-3 px-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
-          <Settings className="h-6 w-6" />
+    <aside className={`${mobile ? 'flex w-full' : 'hidden w-72 lg:flex'} flex-col border-r border-slate-800 bg-slate-900 px-5 py-8 text-white relative overflow-hidden`}>
+      {/* Decorative Glow */}
+      <div className="absolute top-0 -left-10 h-64 w-64 rounded-full bg-blue-600/20 blur-[80px] pointer-events-none" />
+      <div className="absolute bottom-0 -right-10 h-64 w-64 rounded-full bg-purple-600/20 blur-[80px] pointer-events-none" />
+
+      <div className="relative mb-10 flex items-center gap-3 px-2">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
+          <Settings className="h-6 w-6 text-white" />
         </div>
         <div>
-          <p className="font-display text-lg font-bold">Campus Hub</p>
-          <p className="text-xs text-blue-100">Operations Workspace</p>
+          <p className="font-display text-lg font-bold tracking-wide">Campus Hub</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Operations Center</p>
         </div>
       </div>
 
-      <nav className="space-y-1.5">
+      <nav className="relative flex-1 space-y-2">
         {visibleItems.map((item) => (
           <NavLink
             key={item.label}
             to={item.to}
             onClick={onNavigate}
             className={({ isActive }) => [
-              'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition',
+              'group relative flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
               isActive
-                ? 'bg-white/25 font-semibold shadow-lg'
-                : 'text-blue-50 hover:bg-white/15 hover:text-white',
+                ? 'bg-blue-600/10 text-blue-400 shadow-[inset_0px_1px_1px_rgba(255,255,255,0.05)] ring-1 ring-blue-500/30'
+                : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200',
             ].join(' ')}
           >
             {({ isActive }) => (
               <>
-                <item.icon className={`h-4.5 w-4.5 ${isActive ? 'text-white' : 'text-blue-100 group-hover:text-white'}`} />
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-active"
+                    className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                  />
+                )}
+                <item.icon className={`h-5 w-5 transition-colors ${isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
                 <span>{item.label}</span>
               </>
             )}
@@ -65,16 +75,16 @@ export default function Sidebar({ role = 'USER', onLogout, onNavigate, mobile = 
         ))}
       </nav>
 
-      <div className="mt-auto border-t border-white/20 pt-4">
-        <motion.button
-          whileHover={{ x: 3 }}
+      <div className="relative mt-auto pt-6">
+        <div className="mb-4 h-px w-full bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        <button
           type="button"
           onClick={onLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-blue-100 transition hover:bg-white/15 hover:text-white"
+          className="group flex w-full items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 transition-all duration-200 hover:bg-rose-500/10 hover:text-rose-400 hover:ring-1 hover:ring-rose-500/30"
         >
-          <LogOut className="h-4.5 w-4.5" />
-          <span>Logout</span>
-        </motion.button>
+          <LogOut className="h-5 w-5 text-slate-500 transition-colors group-hover:text-rose-400" />
+          <span>Sign Out</span>
+        </button>
       </div>
     </aside>
   )

@@ -1,150 +1,196 @@
 import { motion } from 'framer-motion'
-import { AlertCircle, ArrowRight, Mail, Lock, ShieldCheck } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { ArrowRight, KeyRound, Mail, Zap, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { authService } from '../services/authService'
 
 export default function LoginPage() {
-  const { isAuthenticated, login, initializing } = useAuth()
-  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  const canSubmit = useMemo(() => email.trim() && password.trim(), [email, password])
+  const from = location.state?.from?.pathname || '/dashboard'
 
   const handleGoogleLogin = () => {
     localStorage.removeItem('smartCampusUser')
     window.location.href = authService.getGoogleLoginUrl()
   }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
+  const handleSubmit = async (e) => {
+    e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      await login({ email, password })
-      toast.success('Welcome back!')
-      navigate('/dashboard')
-    } catch (loginError) {
-      setError(loginError?.response?.data?.error || 'Login failed. Please check your credentials.')
+      await login(email, password)
+      navigate(from, { replace: true })
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to login')
     } finally {
       setLoading(false)
     }
   }
 
-  if (!initializing && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />
-  }
-
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.35),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(168,85,247,0.3),_transparent_40%),#f3f6ff] px-4 py-8 font-body">
-      <div className="absolute -left-16 top-10 h-52 w-52 rounded-full bg-blue-200/40 blur-3xl" />
-      <div className="absolute -bottom-24 right-8 h-60 w-60 rounded-full bg-fuchsia-200/40 blur-3xl" />
+    <div className="flex min-h-screen bg-slate-50 font-body selection:bg-blue-500/30 selection:text-blue-900">
+      {/* Left Pane - Form */}
+      <div className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-12 lg:flex-none lg:w-1/2 xl:w-5/12">
+        <div className="mx-auto w-full max-w-sm lg:w-96">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+            <Link to="/" className="inline-flex items-center gap-2 text-slate-900">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 shadow-md shadow-blue-500/20">
+                <Zap className="h-5 w-5 text-white" />
+              </div>
+              <span className="font-display text-xl font-bold tracking-tight">Smart Campus</span>
+            </Link>
+            <h2 className="mt-8 font-display text-3xl font-bold tracking-tight text-slate-900">
+              Welcome back
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Enter your credentials to access your workspace.
+            </p>
+          </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="relative mx-auto flex min-h-[90vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-white/70 bg-white/70 shadow-soft backdrop-blur"
-      >
-        <section className="hidden w-1/2 bg-gradient-to-br from-blue-600 to-purple-700 p-10 text-white lg:block">
-          <p className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
-            <ShieldCheck className="h-4 w-4" /> Secure Access
-          </p>
-          <h1 className="mt-6 font-display text-4xl font-black leading-tight">Smart Campus Operations Hub</h1>
-          <p className="mt-4 text-sm text-blue-100">
-            Coordinate facilities, bookings, maintenance tickets, and notifications from one role-based workspace.
-          </p>
-          <ul className="mt-8 space-y-3 text-sm text-blue-100">
-            <li>Role-based dashboards for admins, technicians, and users</li>
-            <li>Real-time notification center with actionable alerts</li>
-            <li>Operational visibility designed for fast decisions</li>
-          </ul>
-        </section>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="mt-8">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 shadow-sm">
+                  {error}
+                </div>
+              )}
 
-        <section className="w-full p-7 sm:p-10 lg:w-1/2">
-          <div className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">Welcome Back</p>
-            <h2 className="mt-2 font-display text-3xl font-bold text-slate-900">Sign in to continue</h2>
-            <p className="mt-2 text-sm text-slate-500">Use your email and password or continue with Google.</p>
-          </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700" htmlFor="email">
+                    Email address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="block w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      placeholder="you@university.edu"
+                    />
+                  </div>
+                </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-slate-700">Email</span>
-              <span className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
-                <Mail className="h-4 w-4 text-slate-400" />
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="w-full border-0 bg-transparent text-sm outline-none"
-                  required
-                />
-              </span>
-            </label>
+                <div>
+                  <div className="mb-1.5 flex justify-between items-center">
+                    <label className="block text-sm font-semibold text-slate-700" htmlFor="password">
+                      Password
+                    </label>
+                    <button type="button" className="text-xs font-semibold text-blue-600 hover:text-blue-500">
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="password"
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="block w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-slate-700">Password</span>
-              <span className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
-                <Lock className="h-4 w-4 text-slate-400" />
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="w-full border-0 bg-transparent text-sm outline-none"
-                  required
-                />
-              </span>
-            </label>
+              <button
+                type="submit"
+                disabled={loading}
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sign in'}
+                {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}
+              </button>
 
-            {error ? (
-              <p className="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
-                <AlertCircle className="h-4 w-4" />
-                {error}
-              </p>
-            ) : null}
+              <div className="relative mt-8">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-slate-50 px-3 text-xs font-medium uppercase text-slate-500">Or continue with</span>
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading || !canSubmit}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-              <ArrowRight className="h-4 w-4" />
-            </button>
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24">
+                    <path
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      fill="#4285F4"
+                    />
+                    <path
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      fill="#34A853"
+                    />
+                    <path
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                      fill="#FBBC05"
+                    />
+                    <path
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                      fill="#EA4335"
+                    />
+                  </svg>
+                  Sign in with Google
+                </button>
+              </div>
+            </form>
 
-            <div className="flex items-center gap-3 py-1">
-              <span className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs text-slate-400">OR</span>
-              <span className="h-px flex-1 bg-slate-200" />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google" />
-              Continue with Google
-            </button>
-
-            <p className="pt-1 text-center text-sm text-slate-500">
-              New here?{' '}
-              <Link to="/signup" className="font-semibold text-blue-600 hover:text-blue-700">
-                Create an account
+            <p className="mt-8 text-center text-sm text-slate-500">
+              Don&apos;t have an account?{' '}
+              <Link to="/signup" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors">
+                Sign up
               </Link>
             </p>
-          </form>
-        </section>
-      </motion.div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Right Pane - Image/Branding */}
+      <div className="relative hidden w-full flex-1 lg:block">
+        <div className="absolute inset-0 bg-slate-900">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-blue-600/20 blur-[120px]"></div>
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center p-12">
+          <div className="relative max-w-lg text-center">
+            <h3 className="font-display text-4xl font-bold tracking-tight text-white mb-6">
+              Operations management, simplified.
+            </h3>
+            <p className="text-lg text-slate-300 leading-relaxed mb-12">
+              Join the unified platform that brings facilities management, booking workflows, and ticketing into a single, intuitive interface.
+            </p>
+            
+            <div className="relative rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm shadow-2xl overflow-hidden">
+               <div className="absolute top-0 right-0 h-32 w-32 -translate-y-1/2 translate-x-1/2 rounded-full bg-purple-500/30 blur-[40px]" />
+               <img src="/hero-campus.svg" alt="App preview" className="rounded-xl border border-white/10 w-full object-cover bg-slate-800" style={{ aspectRatio: '16/9' }}
+                 onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerHTML = '<div class="w-full aspect-[16/9] flex items-center justify-center bg-slate-800 rounded-xl"><p class="text-slate-400 font-medium">Dashboard Interface</p></div>';
+                }}
+               />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
