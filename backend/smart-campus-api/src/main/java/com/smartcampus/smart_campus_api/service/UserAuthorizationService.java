@@ -1,6 +1,9 @@
 package com.smartcampus.smart_campus_api.service;
 
 import java.util.Arrays;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -40,10 +43,30 @@ public class UserAuthorizationService {
             throw new ForbiddenOperationException("No roles assigned for this operation");
         }
 
-        boolean allowed = Arrays.stream(allowedRoles).anyMatch(role -> user.getRoles().contains(role));
+        Set<String> normalizedUserRoles = user.getRoles().stream()
+                .map(this::normalizeRole)
+                .collect(Collectors.toSet());
+
+        boolean allowed = Arrays.stream(allowedRoles)
+                .map(this::normalizeRole)
+                .anyMatch(normalizedUserRoles::contains);
+
         if (!allowed) {
             throw new ForbiddenOperationException("Insufficient role privileges for this operation");
         }
+    }
+
+    private String normalizeRole(String role) {
+        if (role == null) {
+            return "";
+        }
+
+        String normalized = role.trim().toUpperCase(Locale.ROOT);
+        if (normalized.startsWith("ROLE_")) {
+            return normalized.substring("ROLE_".length());
+        }
+
+        return normalized;
     }
 
     private String extractEmail(Object principal) {

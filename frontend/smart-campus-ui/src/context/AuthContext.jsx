@@ -5,6 +5,13 @@ export const AuthContext = createContext(null)
 const STORAGE_KEY = 'smartCampusUser'
 const SESSION_CHECK_TIMEOUT_MS = 10000
 
+function normalizeRole(role) {
+  if (typeof role !== 'string') return null
+  const value = role.trim()
+  if (!value) return null
+  return value.replace(/^ROLE_/, '').toUpperCase()
+}
+
 function getSavedUser() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
@@ -91,7 +98,10 @@ export function AuthProvider({ children }) {
     saveUser(null)
   }, [saveUser])
 
-  const roles = useMemo(() => (Array.isArray(user?.roles) ? user.roles : []), [user])
+  const roles = useMemo(() => {
+    if (!Array.isArray(user?.roles)) return []
+    return user.roles.map(normalizeRole).filter(Boolean)
+  }, [user])
 
   const value = useMemo(() => ({
     user,

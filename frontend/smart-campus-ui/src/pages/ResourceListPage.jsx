@@ -179,16 +179,26 @@ export default function ResourceListPage() {
             </p>
           </div>
 
-          {isAdmin ? (
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setOpenCreate(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
-              <Plus className="h-4 w-4" />
-              Add Resource
+              All Resources
             </button>
-          ) : null}
+
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setOpenCreate(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" />
+                Add Resource
+              </button>
+            ) : null}
+          </div>
         </div>
       </motion.section>
 
