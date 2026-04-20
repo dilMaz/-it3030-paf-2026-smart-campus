@@ -18,7 +18,7 @@ function openGoogleChrome() {
         const url = `http://localhost:${port}`
 
         if (process.platform === 'win32') {
-          exec(`start chrome "${url}"`)
+          exec(`start "" "${url}"`)
           return
         }
 
@@ -35,5 +35,9 @@ function openGoogleChrome() {
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   plugins: [react(), openGoogleChrome()],
 })

@@ -58,7 +58,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Google account does not provide an email"));
         }
 
-        Optional<User> existingUser = userRepository.findByEmail(email);
+        Optional<User> existingUser = findFirstUserByEmail(email);
 
         User user;
         if (existingUser.isPresent()) {
@@ -94,7 +94,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Passwords do not match"));
         }
 
-        if (userRepository.findByEmail(normalizedEmail).isPresent()) {
+        if (findFirstUserByEmail(normalizedEmail).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Email already registered"));
         }
 
@@ -114,13 +114,19 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Email and password are required"));
         }
 
-        Optional<User> optionalUser = userRepository.findByEmail(normalizeEmail(request.email()));
-        if (optionalUser.isEmpty() || optionalUser.get().getPasswordHash() == null
-                || !passwordEncoder.matches(request.password(), optionalUser.get().getPasswordHash())) {
+        String normalizedEmail = normalizeEmail(request.email());
+        List<User> matchedUsers = userRepository.findAllByEmail(normalizedEmail);
+
+        Optional<User> authenticatedUser = matchedUsers.stream()
+                .filter(user -> user.getPasswordHash() != null
+                        && passwordEncoder.matches(request.password(), user.getPasswordHash()))
+                .findFirst();
+
+        if (authenticatedUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid email or password"));
         }
 
-        return ResponseEntity.ok(optionalUser.get());
+        return ResponseEntity.ok(authenticatedUser.get());
     }
 
     @GetMapping("/users")
@@ -188,7 +194,21 @@ public class AuthController {
             return Optional.empty();
         }
 
-        return userRepository.findByEmail(email);
+        return findFirstUserByEmail(email);
+    }
+
+    private Optional<User> findFirstUserByEmail(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail == null || normalizedEmail.isBlank()) {
+            return Optional.empty();
+        }
+
+        List<User> matchedUsers = userRepository.findAllByEmail(normalizedEmail);
+        if (matchedUsers.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(matchedUsers.get(0));
     }
 
     private List<String> resolveInitialRoles(String email) {

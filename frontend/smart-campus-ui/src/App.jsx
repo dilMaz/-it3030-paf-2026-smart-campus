@@ -3,6 +3,7 @@ import AppShell from './components/layout/AppShell'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import Dashboard from './pages/Dashboard'
+import AuthCallbackPage from './pages/AuthCallbackPage'
 import NotificationsPage from './pages/NotificationsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -17,6 +18,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>

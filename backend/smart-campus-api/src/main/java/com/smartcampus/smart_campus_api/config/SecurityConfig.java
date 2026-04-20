@@ -31,7 +31,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             )
             .oauth2Login(oauth2 -> oauth2
-                .defaultSuccessUrl("http://localhost:5173/dashboard", true)
+                .defaultSuccessUrl("http://localhost:5173/auth/callback", true)
                 .failureUrl("http://localhost:5173/login?error")
             );
 

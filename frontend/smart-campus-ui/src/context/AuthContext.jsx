@@ -3,7 +3,7 @@ import { authService } from '../services/authService'
 
 export const AuthContext = createContext(null)
 const STORAGE_KEY = 'smartCampusUser'
-const SESSION_CHECK_TIMEOUT_MS = 5000
+const SESSION_CHECK_TIMEOUT_MS = 10000
 
 function getSavedUser() {
   try {
@@ -68,7 +68,11 @@ export function AuthProvider({ children }) {
     }
   }, [refreshUser, user])
 
-  const login = useCallback(async (credentials) => {
+  const login = useCallback(async (credentialsOrEmail, password) => {
+    const credentials = typeof credentialsOrEmail === 'string'
+      ? { email: credentialsOrEmail, password }
+      : credentialsOrEmail
+
     const loggedInUser = await authService.login(credentials)
     saveUser(loggedInUser)
     return loggedInUser
