@@ -29,7 +29,8 @@ public class SecurityConfig {
                     "/api/auth/logout",
                     "/api/auth/users/**",
                     "/api/notifications/**",
-                    "/api/facilities/**"
+                    "/api/facilities/**",
+                    "/api/resources/**"
                 ).authenticated()
                 .anyRequest().permitAll()
             )
