@@ -86,9 +86,9 @@ export default function ResourceFilterBar({ filters, onChange, onSearch, onReset
         </select>
       </label>
 
-      <label className="block">
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Quick Search</span>
-        <div className="relative">
+      <label className="block md:col-span-2 xl:col-span-5">
+        <span className="mb-1.5 block text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Quick Search</span>
+        <div className="relative mx-auto w-full max-w-2xl">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
