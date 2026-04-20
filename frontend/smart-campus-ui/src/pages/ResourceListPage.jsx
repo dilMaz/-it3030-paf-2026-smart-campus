@@ -12,7 +12,8 @@ import { resourceService } from '../services/resourceService'
 
 const defaultFilters = {
   type: '',
-  location: '',
+  building: '',
+  floor: '',
   minCapacity: '',
   status: '',
   query: '',
@@ -78,7 +79,13 @@ export default function ResourceListPage() {
   }, [])
 
   const handleFilterChange = (field, value) => {
-    setFilters((current) => ({ ...current, [field]: value }))
+    setFilters((current) => {
+      if (field === 'building') {
+        return { ...current, building: value, floor: '' }
+      }
+
+      return { ...current, [field]: value }
+    })
   }
 
   const handleSearch = async (event) => {
@@ -87,13 +94,18 @@ export default function ResourceListPage() {
     setError('')
 
     try {
-      const { query, ...searchFilters } = filters
-      const hasBackendFilters = Object.values(searchFilters).some((value) => value !== '')
+      const { query, building, floor, ...searchFilters } = filters
+      const location = building && floor ? `${building} - ${floor}` : ''
+      const backendFilters = {
+        ...searchFilters,
+        location,
+      }
+      const hasBackendFilters = Object.values(backendFilters).some((value) => value !== '')
 
       const data = hasBackendFilters
         ? await resourceService.search({
-          ...searchFilters,
-          minCapacity: searchFilters.minCapacity ? Number(searchFilters.minCapacity) : undefined,
+          ...backendFilters,
+          minCapacity: backendFilters.minCapacity ? Number(backendFilters.minCapacity) : undefined,
         })
         : await resourceService.getAll()
 

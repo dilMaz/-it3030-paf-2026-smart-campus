@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react'
+import { buildingFloors, buildingOptions } from './buildingFloors'
 
 const resourceTypes = ['LECTURE_HALL', 'LAB', 'MEETING_ROOM', 'EQUIPMENT']
 const resourceStatuses = ['ACTIVE', 'OUT_OF_SERVICE']
@@ -12,6 +13,8 @@ function prettyLabel(value) {
 }
 
 export default function ResourceFilterBar({ filters, onChange, onSearch, onReset }) {
+  const floorOptions = filters.building ? buildingFloors[filters.building] || [] : []
+
   return (
     <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={onSearch}>
       <label className="block">
@@ -29,14 +32,32 @@ export default function ResourceFilterBar({ filters, onChange, onSearch, onReset
       </label>
 
       <label className="block">
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Location</span>
-        <input
-          type="text"
-          value={filters.location}
-          onChange={(event) => onChange('location', event.target.value)}
-          placeholder="Building / floor"
+        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Building</span>
+        <select
+          value={filters.building}
+          onChange={(event) => onChange('building', event.target.value)}
           className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
-        />
+        >
+          <option value="">All Buildings</option>
+          {buildingOptions.map((building) => (
+            <option key={building} value={building}>{building}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Floor</span>
+        <select
+          value={filters.floor}
+          onChange={(event) => onChange('floor', event.target.value)}
+          disabled={!filters.building}
+          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+        >
+          <option value="">{filters.building ? 'All Floors' : 'Select building first'}</option>
+          {floorOptions.map((floor) => (
+            <option key={floor} value={floor}>{floor}</option>
+          ))}
+        </select>
       </label>
 
       <label className="block">
@@ -73,7 +94,7 @@ export default function ResourceFilterBar({ filters, onChange, onSearch, onReset
             type="text"
             value={filters.query}
             onChange={(event) => onChange('query', event.target.value)}
-            placeholder="Try type or location"
+            placeholder="Try type, building, or floor"
             className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
           />
         </div>

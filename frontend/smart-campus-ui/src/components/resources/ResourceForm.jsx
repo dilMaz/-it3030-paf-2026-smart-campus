@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { buildingFloors, buildingOptions } from './buildingFloors'
 
 const types = ['LECTURE_HALL', 'LAB', 'MEETING_ROOM', 'EQUIPMENT']
 const statuses = ['ACTIVE', 'OUT_OF_SERVICE']
@@ -7,7 +8,8 @@ const defaultState = {
   name: '',
   type: 'LECTURE_HALL',
   capacity: '',
-  location: '',
+  building: '',
+  floor: '',
   availableFrom: '08:00',
   availableTo: '17:00',
   status: 'ACTIVE',
@@ -22,10 +24,41 @@ function prettyLabel(value) {
     .join(' ')
 }
 
+function parseLocation(location) {
+  if (!location || typeof location !== 'string') {
+    return { building: '', floor: '' }
+  }
+
+  const normalizedLocation = location.toUpperCase()
+
+  for (const building of buildingOptions) {
+    const floors = buildingFloors[building] || []
+    for (const floor of floors) {
+      if (normalizedLocation.includes(building.toUpperCase()) && normalizedLocation.includes(floor.toUpperCase())) {
+        return { building, floor }
+      }
+    }
+  }
+
+  for (const building of buildingOptions) {
+    const floors = buildingFloors[building] || []
+    const matchedFloor = floors.find((floor) => normalizedLocation.includes(floor.toUpperCase()))
+    if (matchedFloor) {
+      return { building, floor: matchedFloor }
+    }
+  }
+
+  return { building: '', floor: '' }
+}
+
 function mapInitialValues(initialValues = {}) {
+  const parsedLocation = parseLocation(initialValues.location)
+
   return {
     ...defaultState,
     ...initialValues,
+    building: parsedLocation.building,
+    floor: parsedLocation.floor,
     capacity: initialValues.capacity ? String(initialValues.capacity) : '',
   }
 }
@@ -40,15 +73,28 @@ export default function ResourceForm({
 }) {
   const [values, setValues] = useState(() => mapInitialValues(initialValues))
   const [errors, setErrors] = useState({})
+  const floorOptions = values.building ? buildingFloors[values.building] || [] : []
 
   const isValid = useMemo(() => Object.keys(errors).length === 0, [errors])
 
   const setField = (field, value) => {
-    setValues((current) => ({ ...current, [field]: value }))
+    setValues((current) => {
+      if (field === 'building') {
+        return { ...current, building: value, floor: '' }
+      }
+
+      return { ...current, [field]: value }
+    })
+
     setErrors((current) => {
       if (!current[field]) return current
       const next = { ...current }
       delete next[field]
+
+      if (field === 'building' && next.floor) {
+        delete next.floor
+      }
+
       return next
     })
   }
@@ -56,7 +102,8 @@ export default function ResourceForm({
   const validate = () => {
     const nextErrors = {}
     if (!values.name.trim()) nextErrors.name = 'Name is required'
-    if (!values.location.trim()) nextErrors.location = 'Location is required'
+    if (!values.building) nextErrors.building = 'Building is required'
+    if (!values.floor) nextErrors.floor = 'Floor is required'
     if (!values.capacity || Number(values.capacity) < 1) nextErrors.capacity = 'Capacity must be at least 1'
     if (!values.availableFrom) nextErrors.availableFrom = 'Available from is required'
     if (!values.availableTo) nextErrors.availableTo = 'Available to is required'
@@ -75,7 +122,7 @@ export default function ResourceForm({
       name: values.name.trim(),
       type: values.type,
       capacity: Number(values.capacity),
-      location: values.location.trim(),
+      location: `${values.building} - ${values.floor}`,
       availableFrom: values.availableFrom,
       availableTo: values.availableTo,
       status: values.status,
@@ -127,14 +174,34 @@ export default function ResourceForm({
         </label>
 
         <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Location</span>
-          <input
-            type="text"
-            value={values.location}
-            onChange={(event) => setField('location', event.target.value)}
+          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Building</span>
+          <select
+            value={values.building}
+            onChange={(event) => setField('building', event.target.value)}
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
-          />
-          {errors.location ? <p className="mt-1 text-xs text-rose-600">{errors.location}</p> : null}
+          >
+            <option value="">Select building</option>
+            {buildingOptions.map((building) => (
+              <option key={building} value={building}>{building}</option>
+            ))}
+          </select>
+          {errors.building ? <p className="mt-1 text-xs text-rose-600">{errors.building}</p> : null}
+        </label>
+
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Floor</span>
+          <select
+            value={values.floor}
+            onChange={(event) => setField('floor', event.target.value)}
+            disabled={!values.building}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">{values.building ? 'Select floor' : 'Select building first'}</option>
+            {floorOptions.map((floor) => (
+              <option key={floor} value={floor}>{floor}</option>
+            ))}
+          </select>
+          {errors.floor ? <p className="mt-1 text-xs text-rose-600">{errors.floor}</p> : null}
         </label>
 
         <label className="block">
