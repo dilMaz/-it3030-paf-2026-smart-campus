@@ -17,7 +17,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       - name: Build with Maven
-        run: cd backend && mvn clean install -DskipTests
+        run: cd backend/smart-campus-api && mvn clean install -DskipTests
 
   frontend:
     runs-on: ubuntu-latest
@@ -28,4 +28,4 @@ jobs:
         with:
           node-version: '18'
       - name: Install and Build
-        run: cd frontend && npm install && npm run build
+        run: cd frontend/smart-campus-ui && npm install && npm run build
