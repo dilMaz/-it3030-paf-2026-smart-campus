@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import OperationsPlaceholderPage from './pages/OperationsPlaceholderPage'
 import NotFoundPage from './pages/NotFoundPage'
+import FacilitiesPage from './pages/FacilitiesPage'
 
 function App() {
   return (
@@ -35,7 +36,7 @@ function App() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'USER']} />}>
-              <Route path="/facilities" element={<OperationsPlaceholderPage title="Facilities" description="View facility availability, conditions, and utilization insights." />} />
+              <Route path="/facilities" element={<FacilitiesPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>

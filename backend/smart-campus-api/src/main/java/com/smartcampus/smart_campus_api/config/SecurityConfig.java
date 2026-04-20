@@ -24,7 +24,13 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/register", "/api/auth/login", "/oauth2/**", "/login/**", "/error").permitAll()
-                .requestMatchers("/api/auth/me", "/api/auth/logout", "/api/auth/users/**", "/api/notifications/**").authenticated()
+                .requestMatchers(
+                    "/api/auth/me",
+                    "/api/auth/logout",
+                    "/api/auth/users/**",
+                    "/api/notifications/**",
+                    "/api/facilities/**"
+                ).authenticated()
                 .anyRequest().permitAll()
             )
             .exceptionHandling(ex -> ex
@@ -47,7 +53,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(java.util.List.of("http://localhost:5173"));
-        configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(java.util.List.of("*"));
         configuration.setAllowCredentials(true);
 

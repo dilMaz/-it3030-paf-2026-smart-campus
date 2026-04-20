@@ -6,12 +6,18 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -108,7 +114,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpServletRequest) {
         if (request.email() == null || request.email().isBlank()
                 || request.password() == null || request.password().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Email and password are required"));
@@ -126,7 +132,9 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid email or password"));
         }
 
-        return ResponseEntity.ok(authenticatedUser.get());
+        User loggedInUser = authenticatedUser.get();
+        establishSessionAuthentication(loggedInUser, httpServletRequest);
+        return ResponseEntity.ok(loggedInUser);
     }
 
     @GetMapping("/users")
@@ -237,5 +245,23 @@ public class AuthController {
 
     private boolean isAdmin(User user) {
         return user.getRoles() != null && user.getRoles().contains("ADMIN");
+    }
+
+    private void establishSessionAuthentication(User user, HttpServletRequest request) {
+        List<GrantedAuthority> authorities = (user.getRoles() == null ? List.<String>of() : user.getRoles()).stream()
+                .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
+                .map(SimpleGrantedAuthority::new)
+                .map(GrantedAuthority.class::cast)
+                .toList();
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                normalizeEmail(user.getEmail()),
+                null,
+                authorities);
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        request.getSession(true).setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
     }
 }
