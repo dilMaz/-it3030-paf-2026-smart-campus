@@ -10,6 +10,7 @@ import { facilityService } from '../services/facilityService'
 const facilityTypes = ['LECTURE_HALL', 'LAB', 'MEETING_ROOM', 'EQUIPMENT']
 const facilityStatuses = ['ACTIVE', 'OUT_OF_SERVICE']
 const daysOfWeek = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+const filterDebounceMs = 300
 
 const emptyFormState = {
   name: '',
@@ -94,8 +95,12 @@ export default function FacilitiesPage() {
   }, [])
 
   useEffect(() => {
-    loadFacilities(filters)
-  }, [loadFacilities])
+    const timeoutId = window.setTimeout(() => {
+      loadFacilities(filters)
+    }, filterDebounceMs)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [filters, loadFacilities])
 
   const handleApplyFilters = async (event) => {
     event.preventDefault()
@@ -103,9 +108,7 @@ export default function FacilitiesPage() {
   }
 
   const handleResetFilters = async () => {
-    const resetFilters = { search: '', type: '', location: '', minCapacity: '', status: '' }
-    setFilters(resetFilters)
-    await loadFacilities(resetFilters)
+    setFilters({ search: '', type: '', location: '', minCapacity: '', status: '' })
   }
 
   const handleFilterChange = (field, value) => {
