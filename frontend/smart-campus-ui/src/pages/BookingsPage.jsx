@@ -1,3 +1,4 @@
+// Booking request UI component.
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, CheckCircle2, Clock3, Search, XCircle } from 'lucide-react'
 import { bookingService } from '../services/bookingService'
