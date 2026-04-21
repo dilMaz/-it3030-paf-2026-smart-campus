@@ -216,6 +216,7 @@ public class BookingServiceImpl implements BookingService {
         return start1.isBefore(end2) && start2.isBefore(end1);
     }
 
+    // Helper method to convert entity to response DTO
     private BookingResponse toResponse(Booking booking) {
         return BookingResponse.builder()
                 .id(booking.getId())
