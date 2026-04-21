@@ -49,6 +49,7 @@ public class BookingController {
         return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.createBooking(request, principal));
     }
 
+    // Approve pending booking request
     @PatchMapping("/{bookingId}/approve")
     public ResponseEntity<BookingResponse> approveBooking(
             @PathVariable String bookingId,
