@@ -183,6 +183,7 @@ public class BookingServiceImpl implements BookingService {
         bookingRepository.delete(booking);
     }
 
+    // Check for booking conflicts with existing approved bookings
     @Override
     public boolean hasBookingConflict(String resourceId, String startTime, String endTime, String excludeBookingId) {
         DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
