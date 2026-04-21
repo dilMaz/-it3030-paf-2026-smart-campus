@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, CheckCircle2, Clock3, XCircle } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Clock3, Search, XCircle } from 'lucide-react'
 import { bookingService } from '../services/bookingService'
 import { resourceService } from '../services/resourceService'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
@@ -28,12 +28,20 @@ export default function BookingsPage() {
   const { roles } = useAuth()
   const isAdmin = useMemo(() => roles.includes('ADMIN'), [roles])
 
+  const defaultFilters = useMemo(() => ({
+    query: '',
+    resourceId: '',
+    status: '',
+  }), [])
+
   const [resources, setResources] = useState([])
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [filters, setFilters] = useState(defaultFilters)
+  const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
 
   const [form, setForm] = useState({
     resourceId: '',
@@ -46,6 +54,34 @@ export default function BookingsPage() {
     () => resources.filter((resource) => resource.status === 'ACTIVE'),
     [resources],
   )
+
+  const filteredBookings = useMemo(() => {
+    const query = appliedFilters.query.trim().toLowerCase()
+
+    return bookings.filter((booking) => {
+      if (appliedFilters.resourceId && booking.resourceId !== appliedFilters.resourceId) {
+        return false
+      }
+
+      if (appliedFilters.status && booking.status !== appliedFilters.status) {
+        return false
+      }
+
+      if (!query) {
+        return true
+      }
+
+      return [
+        booking.resourceName,
+        booking.userName,
+        booking.userEmail,
+        booking.purpose,
+        booking.status,
+      ]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(query))
+    })
+  }, [bookings, appliedFilters])
 
   const loadData = async () => {
     setLoading(true)
@@ -71,6 +107,20 @@ export default function BookingsPage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  const handleFilterChange = (field, value) => {
+    setFilters((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleSearch = (event) => {
+    event.preventDefault()
+    setAppliedFilters(filters)
+  }
+
+  const handleResetFilters = () => {
+    setFilters(defaultFilters)
+    setAppliedFilters(defaultFilters)
+  }
 
   const handleCreateBooking = async (event) => {
     event.preventDefault()
@@ -204,6 +254,69 @@ export default function BookingsPage() {
         </form>
       </section>
 
+      <section className="glass-panel p-6">
+        <h3 className="mb-4 font-display text-lg font-bold text-slate-900">Filter Bookings</h3>
+        <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleSearch}>
+          <label className="block xl:col-span-2">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Search</span>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={filters.query}
+                onChange={(event) => handleFilterChange('query', event.target.value)}
+                placeholder="Search by resource, status, purpose or user"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Resource</span>
+            <select
+              value={filters.resourceId}
+              onChange={(event) => handleFilterChange('resourceId', event.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">All resources</option>
+              {resources.map((resource) => (
+                <option key={resource.id} value={resource.id}>{resource.name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Status</span>
+            <select
+              value={filters.status}
+              onChange={(event) => handleFilterChange('status', event.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">All statuses</option>
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+          </label>
+
+          <div className="xl:col-span-4 flex flex-wrap items-center gap-2">
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              <Search className="h-4 w-4" /> Search
+            </button>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              Reset
+            </button>
+          </div>
+        </form>
+      </section>
+
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
 
@@ -213,7 +326,7 @@ export default function BookingsPage() {
         </div>
       ) : null}
 
-      {!loading && bookings.length === 0 ? (
+      {!loading && filteredBookings.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
           title="No bookings yet"
@@ -221,9 +334,9 @@ export default function BookingsPage() {
         />
       ) : null}
 
-      {!loading && bookings.length > 0 ? (
+      {!loading && filteredBookings.length > 0 ? (
         <section className="space-y-4">
-          {bookings.map((booking) => (
+          {filteredBookings.map((booking) => (
             <article key={booking.id} className="glass-panel p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
