@@ -1,5 +1,5 @@
 // Booking request UI component.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { CalendarDays, CheckCircle2, Clock3, Search, XCircle } from 'lucide-react'
 import { bookingService } from '../services/bookingService'
 import { resourceService } from '../services/resourceService'
@@ -11,6 +11,23 @@ import { useAuth } from '../hooks/useAuth'
 function toLocalDateTimeValue(date = new Date()) {
   const copy = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
   return copy.toISOString().slice(0, 16)
+}
+
+// Debounce hook for search input
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
 }
 
 function statusTone(status) {
@@ -43,6 +60,7 @@ export default function BookingsPage() {
   const [success, setSuccess] = useState('')
   const [filters, setFilters] = useState(defaultFilters)
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
+  const debouncedQuery = useDebounce(filters.query, 300)
 
   const [form, setForm] = useState({
     resourceId: '',
@@ -56,33 +74,40 @@ export default function BookingsPage() {
     [resources],
   )
 
+  // Enhanced booking filter with debounced search
   const filteredBookings = useMemo(() => {
-    const query = appliedFilters.query.trim().toLowerCase()
+    const query = debouncedQuery.trim().toLowerCase()
 
     return bookings.filter((booking) => {
+      // Filter by resource
       if (appliedFilters.resourceId && booking.resourceId !== appliedFilters.resourceId) {
         return false
       }
 
+      // Filter by status
       if (appliedFilters.status && booking.status !== appliedFilters.status) {
         return false
       }
 
+      // Search query filter
       if (!query) {
         return true
       }
 
-      return [
-        booking.resourceName,
-        booking.userName,
-        booking.userEmail,
-        booking.purpose,
-        booking.status,
+      // Enhanced search across multiple fields
+      const searchableFields = [
+        booking.resourceName || '',
+        booking.userName || '',
+        booking.userEmail || '',
+        booking.purpose || '',
+        booking.status || '',
       ]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(query))
+
+      return searchableFields.some((field) => 
+        field.toLowerCase().includes(query)
+      )
     })
-  }, [bookings, appliedFilters])
+  }, [bookings, appliedFilters, debouncedQuery])
 
   const loadData = async () => {
     setLoading(true)
@@ -109,8 +134,19 @@ export default function BookingsPage() {
     loadData()
   }, [])
 
+// Apply debounced search filters
+useEffect(() => {
+  setAppliedFilters(current => ({ ...current, query: debouncedQuery }))
+}, [debouncedQuery])
+
   const handleFilterChange = (field, value) => {
-    setFilters((current) => ({ ...current, [field]: value }))
+    const newFilters = { ...filters, [field]: value }
+    setFilters(newFilters)
+    
+    // Apply filters immediately for non-search fields
+    if (field !== 'query') {
+      setAppliedFilters(newFilters)
+    }
   }
 
   const handleSearch = (event) => {
