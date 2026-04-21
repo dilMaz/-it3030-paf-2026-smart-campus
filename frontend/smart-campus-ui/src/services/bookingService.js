@@ -1,3 +1,4 @@
+// Booking service for API communication
 import api from './api'
 
 export const bookingService = {
