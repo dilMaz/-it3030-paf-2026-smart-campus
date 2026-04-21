@@ -211,6 +211,7 @@ public class BookingServiceImpl implements BookingService {
         return false;
     }
 
+    // Helper method to check if two time ranges overlap
     private boolean isTimeOverlap(LocalDateTime start1, LocalDateTime end1, LocalDateTime start2, LocalDateTime end2) {
         return start1.isBefore(end2) && start2.isBefore(end1);
     }
