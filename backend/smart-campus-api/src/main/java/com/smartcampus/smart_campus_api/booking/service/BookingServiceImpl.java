@@ -21,6 +21,7 @@ import com.smartcampus.smart_campus_api.service.UserAuthorizationService;
 
 import lombok.RequiredArgsConstructor;
 
+// Service implementation for booking business logic and conflict detection
 @Service
 @RequiredArgsConstructor
 @SuppressWarnings("null")
