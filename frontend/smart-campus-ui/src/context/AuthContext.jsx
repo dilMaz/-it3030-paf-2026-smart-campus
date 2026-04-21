@@ -3,7 +3,14 @@ import { authService } from '../services/authService'
 
 export const AuthContext = createContext(null)
 const STORAGE_KEY = 'smartCampusUser'
-const SESSION_CHECK_TIMEOUT_MS = 5000
+const SESSION_CHECK_TIMEOUT_MS = 10000
+
+function normalizeRole(role) {
+  if (typeof role !== 'string') return null
+  const value = role.trim()
+  if (!value) return null
+  return value.replace(/^ROLE_/, '').toUpperCase()
+}
 
 function getSavedUser() {
   try {
@@ -15,7 +22,7 @@ function getSavedUser() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(getSavedUser)
-  const [initializing, setInitializing] = useState(() => !getSavedUser())
+  const [initializing, setInitializing] = useState(true)
 
   const saveUser = useCallback((nextUser) => {
     setUser(nextUser)
@@ -41,14 +48,7 @@ export function AuthProvider({ children }) {
     let active = true
     let timeoutId
 
-    if (user) {
-      setInitializing(false)
-      return () => {
-        active = false
-      }
-    }
-
-    // Safety net: never keep the app blocked on a long /me request.
+    // Always validate the backend session so a stale local cache cannot bypass auth.
     timeoutId = setTimeout(() => {
       if (active) {
         setInitializing(false)
@@ -66,9 +66,13 @@ export function AuthProvider({ children }) {
       active = false
       clearTimeout(timeoutId)
     }
-  }, [refreshUser, user])
+  }, [refreshUser])
 
-  const login = useCallback(async (credentials) => {
+  const login = useCallback(async (credentialsOrEmail, password) => {
+    const credentials = typeof credentialsOrEmail === 'string'
+      ? { email: credentialsOrEmail, password }
+      : credentialsOrEmail
+
     const loggedInUser = await authService.login(credentials)
     saveUser(loggedInUser)
     return loggedInUser
@@ -87,7 +91,10 @@ export function AuthProvider({ children }) {
     saveUser(null)
   }, [saveUser])
 
-  const roles = useMemo(() => (Array.isArray(user?.roles) ? user.roles : []), [user])
+  const roles = useMemo(() => {
+    if (!Array.isArray(user?.roles)) return []
+    return user.roles.map(normalizeRole).filter(Boolean)
+  }, [user])
 
   const value = useMemo(() => ({
     user,

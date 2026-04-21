@@ -32,6 +32,7 @@ import com.smartcampus.smart_campus_api.service.NotificationService;
 @WebMvcTest(controllers = { AuthController.class, NotificationController.class })
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = "app.admin.email=admin@campus.com")
+@SuppressWarnings("null")
 class AccessControlTest {
 
     @Autowired
@@ -60,7 +61,7 @@ class AccessControlTest {
     @Test
     void getUsersAsNonAdminReturns403() throws Exception {
         User nonAdmin = user("u-1", "user1@campus.com", List.of("USER"));
-        when(userRepository.findByEmail("user1@campus.com")).thenReturn(Optional.of(nonAdmin));
+        when(userRepository.findAllByEmail("user1@campus.com")).thenReturn(List.of(nonAdmin));
 
         mockMvc.perform(get("/api/auth/users")
                         .with(oauth2Login().attributes(attrs -> attrs.put("email", "user1@campus.com"))))

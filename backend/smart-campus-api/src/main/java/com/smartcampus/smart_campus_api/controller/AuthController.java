@@ -6,12 +6,19 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,7 +41,8 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
+@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174"}, allowCredentials = "true")
+@SuppressWarnings("null")
 public class AuthController {
 
     private final UserRepository userRepository;
@@ -44,21 +52,35 @@ public class AuthController {
     private static final Set<String> ALLOWED_ROLES = Set.of("USER", "ADMIN", "TECHNICIAN", "MANAGER");
 
     @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
+    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal Object principal) {
         if (principal == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
         }
 
-        String email = normalizeEmail(principal.getAttribute("email"));
-        String name = principal.getAttribute("name");
-        String picture = principal.getAttribute("picture");
-        String googleId = principal.getAttribute("sub");
+        if (!(principal instanceof OAuth2User oauth2User)) {
+            String email = normalizeEmail(extractEmail(principal));
+            if (email == null || email.isBlank()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Unable to resolve authenticated user"));
+            }
+
+            Optional<User> existingUser = findFirstUserByEmail(email);
+            if (existingUser.isEmpty()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authenticated user is not registered"));
+            }
+
+            return ResponseEntity.ok(existingUser.get());
+        }
+
+        String email = normalizeEmail(oauth2User.getAttribute("email"));
+        String name = oauth2User.getAttribute("name");
+        String picture = oauth2User.getAttribute("picture");
+        String googleId = oauth2User.getAttribute("sub");
 
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Google account does not provide an email"));
         }
 
-        Optional<User> existingUser = userRepository.findByEmail(email);
+        Optional<User> existingUser = findFirstUserByEmail(email);
 
         User user;
         if (existingUser.isPresent()) {
@@ -94,7 +116,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Passwords do not match"));
         }
 
-        if (userRepository.findByEmail(normalizedEmail).isPresent()) {
+        if (findFirstUserByEmail(normalizedEmail).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Email already registered"));
         }
 
@@ -108,23 +130,31 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpServletRequest) {
         if (request.email() == null || request.email().isBlank()
                 || request.password() == null || request.password().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Email and password are required"));
         }
 
-        Optional<User> optionalUser = userRepository.findByEmail(normalizeEmail(request.email()));
-        if (optionalUser.isEmpty() || optionalUser.get().getPasswordHash() == null
-                || !passwordEncoder.matches(request.password(), optionalUser.get().getPasswordHash())) {
+        String normalizedEmail = normalizeEmail(request.email());
+        List<User> matchedUsers = userRepository.findAllByEmail(normalizedEmail);
+
+        Optional<User> authenticatedUser = matchedUsers.stream()
+                .filter(user -> user.getPasswordHash() != null
+                        && passwordEncoder.matches(request.password(), user.getPasswordHash()))
+                .findFirst();
+
+        if (authenticatedUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid email or password"));
         }
 
-        return ResponseEntity.ok(optionalUser.get());
+        User loggedInUser = authenticatedUser.get();
+        establishSessionAuthentication(loggedInUser, httpServletRequest);
+        return ResponseEntity.ok(loggedInUser);
     }
 
     @GetMapping("/users")
-    public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal OAuth2User principal) {
+    public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal Object principal) {
         Optional<User> currentUser = resolveCurrentUser(principal);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
@@ -141,7 +171,7 @@ public class AuthController {
     public ResponseEntity<?> updateUserRole(
             @PathVariable String id,
             @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal OAuth2User principal) {
+            @AuthenticationPrincipal Object principal) {
 
         Optional<User> currentUser = resolveCurrentUser(principal);
         if (currentUser.isEmpty()) {
@@ -178,17 +208,31 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 
-    private Optional<User> resolveCurrentUser(OAuth2User principal) {
+    private Optional<User> resolveCurrentUser(Object principal) {
         if (principal == null) {
             return Optional.empty();
         }
 
-        String email = normalizeEmail(principal.getAttribute("email"));
+        String email = normalizeEmail(extractEmail(principal));
         if (email == null || email.isBlank()) {
             return Optional.empty();
         }
 
-        return userRepository.findByEmail(email);
+        return findFirstUserByEmail(email);
+    }
+
+    private Optional<User> findFirstUserByEmail(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail == null || normalizedEmail.isBlank()) {
+            return Optional.empty();
+        }
+
+        List<User> matchedUsers = userRepository.findAllByEmail(normalizedEmail);
+        if (matchedUsers.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(matchedUsers.get(0));
     }
 
     private List<String> resolveInitialRoles(String email) {
@@ -217,5 +261,37 @@ public class AuthController {
 
     private boolean isAdmin(User user) {
         return user.getRoles() != null && user.getRoles().contains("ADMIN");
+    }
+
+    private String extractEmail(Object principal) {
+        if (principal instanceof OAuth2User oauth2User) {
+            Object email = oauth2User.getAttribute("email");
+            return email instanceof String value ? value : null;
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        }
+        if (principal instanceof String value) {
+            return value;
+        }
+        return null;
+    }
+
+    private void establishSessionAuthentication(User user, HttpServletRequest request) {
+        List<GrantedAuthority> authorities = (user.getRoles() == null ? List.<String>of() : user.getRoles()).stream()
+                .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
+                .map(SimpleGrantedAuthority::new)
+                .map(GrantedAuthority.class::cast)
+                .toList();
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                normalizeEmail(user.getEmail()),
+                null,
+                authorities);
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        request.getSession(true).setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
     }
 }

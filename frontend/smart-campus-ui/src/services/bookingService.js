@@ -1,0 +1,23 @@
+import api from './api'
+
+export const bookingService = {
+  async getBookings() {
+    const response = await api.get('/api/bookings')
+    return response.data
+  },
+
+  async createBooking(payload) {
+    const response = await api.post('/api/bookings', payload)
+    return response.data
+  },
+
+  async approveBooking(id) {
+    const response = await api.patch(`/api/bookings/${id}/approve`)
+    return response.data
+  },
+
+  async rejectBooking(id) {
+    const response = await api.patch(`/api/bookings/${id}/reject`)
+    return response.data
+  },
+}
