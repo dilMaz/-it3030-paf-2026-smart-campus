@@ -20,6 +20,7 @@ function formatDate(value) {
   })
 }
 
+// Helper function to get booking status styling
 function getBookingStatusColor(status) {
   switch (status) {
     case 'APPROVED': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
