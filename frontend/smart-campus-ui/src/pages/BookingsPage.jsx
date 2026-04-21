@@ -71,6 +71,7 @@ function validateDateTime(dateTimeString) {
   return null // No error
 }
 
+// Validate both start and end times with business logic rules
 function validateBookingTimes(startTime, endTime) {
   const startError = validateDateTime(startTime)
   if (startError) return startError
