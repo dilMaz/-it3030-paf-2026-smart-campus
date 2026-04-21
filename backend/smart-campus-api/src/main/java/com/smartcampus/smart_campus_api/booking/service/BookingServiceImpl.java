@@ -48,6 +48,7 @@ public class BookingServiceImpl implements BookingService {
         return bookings.stream().map(this::toResponse).toList();
     }
 
+    // Create new booking with validation and conflict checking
     @Override
     public BookingResponse createBooking(CreateBookingRequest request, Object principal) {
         User user = userAuthorizationService.requireAuthenticatedUser(principal);
