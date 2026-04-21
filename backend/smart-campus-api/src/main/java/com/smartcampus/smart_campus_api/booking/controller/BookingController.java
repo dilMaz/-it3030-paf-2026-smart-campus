@@ -57,6 +57,7 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.approveBooking(bookingId, principal));
     }
 
+    // Reject pending booking request
     @PatchMapping("/{bookingId}/reject")
     public ResponseEntity<BookingResponse> rejectBooking(
             @PathVariable String bookingId,
