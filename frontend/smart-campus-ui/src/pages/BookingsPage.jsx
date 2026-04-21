@@ -36,6 +36,7 @@ function statusTone(status) {
   return 'pending'
 }
 
+// Format date and time as DD/MM/YYYY HH:MM
 function formatDateTime(value) {
   if (!value) return '-'
   const date = new Date(value)
