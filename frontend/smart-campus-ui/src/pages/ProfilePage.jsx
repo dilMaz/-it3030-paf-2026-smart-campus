@@ -9,6 +9,7 @@ import EditProfileForm from './EditProfileForm'
 import { profileService } from '../services/profileService'
 import { bookingService } from '../services/bookingService'
 
+// Format date and time as DD/MM/YYYY HH:MM for profile display
 function formatDate(value) {
   if (!value) return 'N/A'
   const date = new Date(value)
