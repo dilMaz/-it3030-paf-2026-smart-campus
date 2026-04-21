@@ -32,6 +32,7 @@ public class BookingServiceImpl implements BookingService {
     private final UserAuthorizationService userAuthorizationService;
     private final NotificationTriggerService notificationTriggerService;
 
+    // Retrieve bookings based on user role (admin sees all, users see own)
     @Override
     public List<BookingResponse> getBookings(Object principal) {
         User user = userAuthorizationService.requireAuthenticatedUser(principal);
