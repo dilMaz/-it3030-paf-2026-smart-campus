@@ -76,6 +76,7 @@ public class BookingServiceImpl implements BookingService {
         return toResponse(bookingRepository.save(booking));
     }
 
+    // Approve pending booking and send notification
     @Override
     public BookingResponse approveBooking(String bookingId, Object principal) {
         User user = userAuthorizationService.requireAuthenticatedUser(principal);
