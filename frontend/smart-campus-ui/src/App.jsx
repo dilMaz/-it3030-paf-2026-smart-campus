@@ -12,6 +12,7 @@ import OperationsPlaceholderPage from './pages/OperationsPlaceholderPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ResourceListPage from './pages/ResourceListPage'
 import BookingsPage from './pages/BookingsPage'
+import ProfilePage from './pages/ProfilePage'
 
 function App() {
   return (
@@ -26,7 +27,7 @@ function App() {
           <Route element={<AppShell />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/profile" element={<OperationsPlaceholderPage title="Profile" description="Manage your personal details, contact preferences, and account settings." />} />
+            <Route path="/profile" element={<ProfilePage />} />
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'USER']} />}>
               <Route path="/bookings" element={<BookingsPage />} />

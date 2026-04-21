@@ -9,5 +9,6 @@ import com.smartcampus.smart_campus_api.model.Notification;
 public interface NotificationRepository extends MongoRepository<Notification, String> {
     List<Notification> findByUserIdOrderByCreatedAtDesc(String userId);
     List<Notification> findByUserIdAndIsRead(String userId, boolean isRead);
+        List<Notification> findByUserIdAndIsReadFalseOrderByCreatedAtDesc(String userId);
     long countByUserIdAndIsRead(String userId, boolean isRead);
 }

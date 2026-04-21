@@ -3,6 +3,7 @@ import { authService } from '../services/authService'
 
 export const AuthContext = createContext(null)
 const STORAGE_KEY = 'smartCampusUser'
+const TOKEN_STORAGE_KEY = 'smartCampusToken'
 const SESSION_CHECK_TIMEOUT_MS = 10000
 
 function normalizeRole(role) {
@@ -40,6 +41,7 @@ export function AuthProvider({ children }) {
       return currentUser
     } catch {
       saveUser(null)
+      localStorage.removeItem(TOKEN_STORAGE_KEY)
       return null
     }
   }, [saveUser])
@@ -73,7 +75,13 @@ export function AuthProvider({ children }) {
       ? { email: credentialsOrEmail, password }
       : credentialsOrEmail
 
-    const loggedInUser = await authService.login(credentials)
+    const loginResponse = await authService.login(credentials)
+    const loggedInUser = loginResponse?.user || loginResponse
+
+    if (loginResponse?.token) {
+      localStorage.setItem(TOKEN_STORAGE_KEY, loginResponse.token)
+    }
+
     saveUser(loggedInUser)
     return loggedInUser
   }, [saveUser])
@@ -89,6 +97,7 @@ export function AuthProvider({ children }) {
       // Ignore API logout failures and still clear local state.
     }
     saveUser(null)
+    localStorage.removeItem(TOKEN_STORAGE_KEY)
   }, [saveUser])
 
   const roles = useMemo(() => {

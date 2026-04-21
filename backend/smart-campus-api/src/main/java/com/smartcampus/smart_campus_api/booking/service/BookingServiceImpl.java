@@ -16,6 +16,7 @@ import com.smartcampus.smart_campus_api.model.User;
 import com.smartcampus.smart_campus_api.resource.entity.Resource;
 import com.smartcampus.smart_campus_api.resource.enums.ResourceStatus;
 import com.smartcampus.smart_campus_api.resource.repository.ResourceRepository;
+import com.smartcampus.smart_campus_api.service.NotificationTriggerService;
 import com.smartcampus.smart_campus_api.service.UserAuthorizationService;
 
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final ResourceRepository resourceRepository;
     private final UserAuthorizationService userAuthorizationService;
+    private final NotificationTriggerService notificationTriggerService;
 
     @Override
     public List<BookingResponse> getBookings(Object principal) {
@@ -84,8 +86,10 @@ public class BookingServiceImpl implements BookingService {
         booking.setStatus(BookingStatus.APPROVED);
         booking.setReviewedAt(LocalDateTime.now());
         booking.setReviewedBy(user.getEmail());
+        Booking savedBooking = bookingRepository.save(booking);
+        notificationTriggerService.handleBookingStatusChanged(savedBooking);
 
-        return toResponse(bookingRepository.save(booking));
+        return toResponse(savedBooking);
     }
 
     @Override
@@ -101,8 +105,10 @@ public class BookingServiceImpl implements BookingService {
         booking.setStatus(BookingStatus.REJECTED);
         booking.setReviewedAt(LocalDateTime.now());
         booking.setReviewedBy(user.getEmail());
+        Booking savedBooking = bookingRepository.save(booking);
+        notificationTriggerService.handleBookingStatusChanged(savedBooking);
 
-        return toResponse(bookingRepository.save(booking));
+        return toResponse(savedBooking);
     }
 
     private Booking findBookingOrThrow(String bookingId) {

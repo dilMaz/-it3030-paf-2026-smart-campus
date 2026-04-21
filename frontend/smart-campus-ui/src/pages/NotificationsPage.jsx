@@ -22,7 +22,7 @@ export default function NotificationsPage() {
     setLoading(true)
     setError('')
 
-    notificationService.getMyNotifications()
+    notificationService.getNotifications()
       .then((data) => {
         setNotifications(Array.isArray(data) ? data : [])
       })
@@ -37,7 +37,7 @@ export default function NotificationsPage() {
   useEffect(() => {
     let active = true
 
-    notificationService.getMyNotifications()
+    notificationService.getNotifications()
       .then((data) => {
         if (!active) return
         setNotifications(Array.isArray(data) ? data : [])
@@ -70,11 +70,10 @@ export default function NotificationsPage() {
   }
 
   const markAllAsRead = async () => {
-    const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
-    if (unreadIds.length === 0) return
+    if (unreadCount === 0) return
 
     try {
-      await Promise.all(unreadIds.map(id => notificationService.markAsRead(id)))
+      await notificationService.markAllAsRead()
       setNotifications((current) => current.map((n) => ({ ...n, read: true })))
       toast.success('All notifications marked as read')
     } catch {
@@ -212,7 +211,6 @@ export default function NotificationsPage() {
                       </button>
                     </Tooltip>
                   ) : null}
-
                   <Tooltip text="Delete">
                     <button
                       type="button"

@@ -1,16 +1,20 @@
-import { motion } from 'framer-motion'
-import { Bell, ChevronDown, Menu, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import NotificationsDropdown from '../notifications/NotificationsDropdown'
+import { ChevronDown, Menu, Search } from 'lucide-react'
+import { useMemo } from 'react'
+import NotificationBell from '../notifications/NotificationBell'
+import { API_BASE_URL } from '../../config/env'
 
 export default function TopNavbar({ user, onToggleMobileSidebar }) {
-  const [openNotifications, setOpenNotifications] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
-
   const initials = useMemo(() => {
     const source = user?.name || user?.email || 'User'
     return source.charAt(0).toUpperCase()
   }, [user?.email, user?.name])
+
+  const avatarUrl = useMemo(() => {
+    const imageUrl = user?.profileImageUrl || user?.picture
+    if (!imageUrl) return ''
+    if (/^https?:\/\//i.test(imageUrl)) return imageUrl
+    return `${API_BASE_URL}${imageUrl}`
+  }, [user?.picture, user?.profileImageUrl])
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur-xl lg:px-8">
@@ -35,35 +39,18 @@ export default function TopNavbar({ user, onToggleMobileSidebar }) {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              type="button"
-              onClick={() => setOpenNotifications((current) => !current)}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-blue-600"
-              aria-label="Open notification center"
-            >
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 ? (
-                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              ) : null}
-            </motion.button>
-            <NotificationsDropdown
-              open={openNotifications}
-              onClose={() => setOpenNotifications(false)}
-              onUnreadCountChange={setUnreadCount}
-            />
-          </div>
+          <NotificationBell />
 
           <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 
           <button className="flex items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-slate-100">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white shadow-inner">
-              {initials}
-            </div>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="User avatar" className="h-9 w-9 rounded-lg object-cover shadow-inner" />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white shadow-inner">
+                {initials}
+              </div>
+            )}
             <div className="hidden text-left sm:block">
               <p className="text-sm font-semibold text-slate-900 leading-none">{user?.name || 'Campus User'}</p>
               <p className="text-[11px] text-slate-500 mt-1">{user?.email || 'No email available'}</p>
