@@ -89,7 +89,7 @@ export default function TopNavbar({ user, onToggleMobileSidebar }) {
               <ChevronDown className="h-4 w-4 text-slate-400" />
             </button>
 
-            {/* Dropdown Menu */}
+            {/* User profile dropdown menu with sign out option */}
             {isDropdownOpen && (
               <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-lg py-2 z-50">
                 <div className="px-4 py-2 border-b border-slate-100">
