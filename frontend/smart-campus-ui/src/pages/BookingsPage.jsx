@@ -230,7 +230,7 @@ useEffect(() => {
         </div>
       </section>
 
-      {/* Only show create booking form for users, not admins */}
+      {/* User-only booking creation form - admins cannot create bookings */}
       {!isAdmin && (
         <section className="glass-panel p-6">
           <h3 className="mb-4 font-display text-lg font-bold text-slate-900">Create Booking</h3>
