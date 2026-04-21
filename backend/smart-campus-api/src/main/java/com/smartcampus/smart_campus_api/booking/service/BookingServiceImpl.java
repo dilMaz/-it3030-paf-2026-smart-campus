@@ -116,6 +116,7 @@ public class BookingServiceImpl implements BookingService {
         return toResponse(savedBooking);
     }
 
+    // Helper method to find booking or throw exception
     private Booking findBookingOrThrow(String bookingId) {
         return bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found for id: " + bookingId));
