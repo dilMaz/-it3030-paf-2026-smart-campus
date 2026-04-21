@@ -22,7 +22,7 @@ function getSavedUser() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(getSavedUser)
-  const [initializing, setInitializing] = useState(() => !getSavedUser())
+  const [initializing, setInitializing] = useState(true)
 
   const saveUser = useCallback((nextUser) => {
     setUser(nextUser)
@@ -48,14 +48,7 @@ export function AuthProvider({ children }) {
     let active = true
     let timeoutId
 
-    if (user) {
-      setInitializing(false)
-      return () => {
-        active = false
-      }
-    }
-
-    // Safety net: never keep the app blocked on a long /me request.
+    // Always validate the backend session so a stale local cache cannot bypass auth.
     timeoutId = setTimeout(() => {
       if (active) {
         setInitializing(false)

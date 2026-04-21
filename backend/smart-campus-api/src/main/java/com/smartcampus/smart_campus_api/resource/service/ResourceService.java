@@ -9,9 +9,9 @@ import com.smartcampus.smart_campus_api.resource.enums.ResourceType;
 
 public interface ResourceService {
     List<ResourceResponse> getAllResources(Object principal);
-    ResourceResponse getResourceById(Long id, Object principal);
+    ResourceResponse getResourceById(String id, Object principal);
     List<ResourceResponse> searchResources(ResourceType type, String location, Integer minCapacity, ResourceStatus status, Object principal);
     ResourceResponse createResource(ResourceRequest request, Object principal);
-    ResourceResponse updateResource(Long id, ResourceRequest request, Object principal);
-    void deleteResource(Long id, Object principal);
+    ResourceResponse updateResource(String id, ResourceRequest request, Object principal);
+    void deleteResource(String id, Object principal);
 }

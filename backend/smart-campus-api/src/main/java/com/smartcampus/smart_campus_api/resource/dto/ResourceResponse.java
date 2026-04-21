@@ -12,7 +12,7 @@ import lombok.Value;
 @Value
 @Builder
 public class ResourceResponse {
-    Long id;
+    String id;
     String name;
     ResourceType type;
     Integer capacity;

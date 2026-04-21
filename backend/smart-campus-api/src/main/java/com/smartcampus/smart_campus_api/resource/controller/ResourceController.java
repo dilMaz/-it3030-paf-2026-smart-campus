@@ -40,7 +40,7 @@ public class ResourceController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ResourceResponse> getResourceById(
-            @PathVariable Long id,
+            @PathVariable String id,
             @AuthenticationPrincipal Object principal) {
         return ResponseEntity.ok(resourceService.getResourceById(id, principal));
     }
@@ -64,7 +64,7 @@ public class ResourceController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ResourceResponse> updateResource(
-            @PathVariable Long id,
+            @PathVariable String id,
             @Valid @RequestBody ResourceRequest request,
             @AuthenticationPrincipal Object principal) {
         return ResponseEntity.ok(resourceService.updateResource(id, request, principal));
@@ -72,7 +72,7 @@ public class ResourceController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteResource(
-            @PathVariable Long id,
+            @PathVariable String id,
             @AuthenticationPrincipal Object principal) {
         resourceService.deleteResource(id, principal);
         return ResponseEntity.noContent().build();

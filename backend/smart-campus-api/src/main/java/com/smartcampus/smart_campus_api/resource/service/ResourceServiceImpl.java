@@ -1,6 +1,10 @@
 package com.smartcampus.smart_campus_api.resource.service;
 
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 
@@ -36,7 +40,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public ResourceResponse getResourceById(Long id, Object principal) {
+    public ResourceResponse getResourceById(String id, Object principal) {
         User user = userAuthorizationService.requireAuthenticatedUser(principal);
         userAuthorizationService.requireAnyRole(user, "USER", "ADMIN");
 
@@ -58,8 +62,28 @@ public class ResourceServiceImpl implements ResourceService {
             throw new IllegalArgumentException("minCapacity must be at least 1");
         }
 
-        return resourceRepository.search(type, normalizeBlank(location), minCapacity, status)
-                .stream()
+        Stream<Resource> stream = resourceRepository.findAll().stream();
+
+        if (type != null) {
+            stream = stream.filter(resource -> resource.getType() == type);
+        }
+
+        if (status != null) {
+            stream = stream.filter(resource -> resource.getStatus() == status);
+        }
+
+        if (minCapacity != null) {
+            stream = stream.filter(resource -> resource.getCapacity() != null && resource.getCapacity() >= minCapacity);
+        }
+
+        String normalizedLocation = normalizeBlank(location);
+        if (normalizedLocation != null) {
+            String locationSearch = normalizedLocation.toLowerCase(Locale.ROOT);
+            stream = stream.filter(resource -> containsIgnoreCase(resource.getLocation(), locationSearch));
+        }
+
+        return stream
+                .sorted(Comparator.comparing(Resource::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(this::toResponse)
                 .toList();
     }
@@ -71,21 +95,28 @@ public class ResourceServiceImpl implements ResourceService {
 
         Resource resource = new Resource();
         applyRequest(resource, request);
+        LocalDateTime now = LocalDateTime.now();
+        resource.setCreatedAt(now);
+        resource.setUpdatedAt(now);
         return toResponse(resourceRepository.save(resource));
     }
 
     @Override
-    public ResourceResponse updateResource(Long id, ResourceRequest request, Object principal) {
+    public ResourceResponse updateResource(String id, ResourceRequest request, Object principal) {
         User user = userAuthorizationService.requireAuthenticatedUser(principal);
         userAuthorizationService.requireAnyRole(user, "ADMIN");
 
         Resource resource = findResourceOrThrow(id);
         applyRequest(resource, request);
+        if (resource.getCreatedAt() == null) {
+            resource.setCreatedAt(LocalDateTime.now());
+        }
+        resource.setUpdatedAt(LocalDateTime.now());
         return toResponse(resourceRepository.save(resource));
     }
 
     @Override
-    public void deleteResource(Long id, Object principal) {
+    public void deleteResource(String id, Object principal) {
         User user = userAuthorizationService.requireAuthenticatedUser(principal);
         userAuthorizationService.requireAnyRole(user, "ADMIN");
 
@@ -93,7 +124,7 @@ public class ResourceServiceImpl implements ResourceService {
         resourceRepository.delete(resource);
     }
 
-    private Resource findResourceOrThrow(Long id) {
+    private Resource findResourceOrThrow(String id) {
         return resourceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Resource not found for id: " + id));
     }
@@ -130,5 +161,9 @@ public class ResourceServiceImpl implements ResourceService {
             return null;
         }
         return value.trim();
+    }
+
+    private boolean containsIgnoreCase(String value, String normalizedSearch) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(normalizedSearch);
     }
 }

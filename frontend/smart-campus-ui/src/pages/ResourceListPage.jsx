@@ -141,7 +141,13 @@ export default function ResourceListPage() {
       await loadAllResources()
       showMessage(setSuccess, 'Resource created successfully.')
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Failed to create resource.')
+      setError(
+        requestError?.response?.data?.message
+        || requestError?.response?.data?.error
+        || requestError?.response?.data?.details?.join(', ')
+        || requestError?.message
+        || 'Failed to create resource.',
+      )
     } finally {
       setBusy(false)
     }
@@ -157,7 +163,13 @@ export default function ResourceListPage() {
       await loadAllResources()
       showMessage(setSuccess, 'Resource updated successfully.')
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Failed to update resource.')
+      setError(
+        requestError?.response?.data?.message
+        || requestError?.response?.data?.error
+        || requestError?.response?.data?.details?.join(', ')
+        || requestError?.message
+        || 'Failed to update resource.',
+      )
     } finally {
       setBusy(false)
     }
@@ -174,7 +186,13 @@ export default function ResourceListPage() {
       await loadAllResources()
       showMessage(setSuccess, 'Resource deleted successfully.')
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Failed to delete resource.')
+      setError(
+        requestError?.response?.data?.message
+        || requestError?.response?.data?.error
+        || requestError?.response?.data?.details?.join(', ')
+        || requestError?.message
+        || 'Failed to delete resource.',
+      )
     } finally {
       setBusy(false)
     }
