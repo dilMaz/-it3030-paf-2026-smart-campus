@@ -13,7 +13,7 @@ function toLocalDateTimeValue(date = new Date()) {
   return copy.toISOString().slice(0, 16)
 }
 
-// Debounce hook for search input
+// Custom debounce hook to optimize search performance
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value)
 
