@@ -20,6 +20,7 @@ export const bookingService = {
     return response.data
   },
 
+  // Reject booking via API
   async rejectBooking(id) {
     const response = await api.patch(`/api/bookings/${id}/reject`)
     return response.data
