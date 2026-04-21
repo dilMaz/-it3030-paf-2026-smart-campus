@@ -5,6 +5,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { authService } from '../services/authService'
 
+const POST_LOGIN_STORAGE_KEY = 'smartCampusPostLoginPath'
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,6 +20,7 @@ export default function LoginPage() {
 
   const handleGoogleLogin = () => {
     localStorage.removeItem('smartCampusUser')
+    sessionStorage.setItem(POST_LOGIN_STORAGE_KEY, from)
     window.location.href = authService.getGoogleLoginUrl()
   }
 
@@ -27,7 +30,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      await login(email, password)
+      await login({ email, password })
       navigate(from, { replace: true })
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to login')
