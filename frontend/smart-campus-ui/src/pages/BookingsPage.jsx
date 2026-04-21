@@ -42,7 +42,7 @@ function formatDateTime(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
 }
 
-// Validation functions for booking form
+// Comprehensive validation for booking date and time inputs
 function validateDateTime(dateTimeString) {
   if (!dateTimeString) return 'Date and time are required'
   
