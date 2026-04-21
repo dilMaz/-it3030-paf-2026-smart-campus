@@ -122,6 +122,7 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found for id: " + bookingId));
     }
 
+    // Helper method to check if user has specific role
     private boolean hasRole(User user, String role) {
         return user.getRoles() != null && user.getRoles().stream().anyMatch(r -> role.equalsIgnoreCase(r));
     }
