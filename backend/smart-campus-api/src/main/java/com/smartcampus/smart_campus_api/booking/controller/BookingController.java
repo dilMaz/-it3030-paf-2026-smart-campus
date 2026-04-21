@@ -26,6 +26,7 @@ import com.smartcampus.smart_campus_api.booking.service.BookingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+// REST controller for booking management operations
 @RestController
 @RequestMapping("/api/bookings")
 @RequiredArgsConstructor
