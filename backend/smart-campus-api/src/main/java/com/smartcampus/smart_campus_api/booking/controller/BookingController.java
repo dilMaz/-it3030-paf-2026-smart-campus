@@ -65,6 +65,7 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.rejectBooking(bookingId, principal));
     }
 
+    // Get booking by ID with authorization check
     @GetMapping("/{bookingId}")
     public ResponseEntity<?> getBookingById(
             @PathVariable String bookingId,
