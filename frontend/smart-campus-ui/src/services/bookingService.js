@@ -2,6 +2,7 @@
 import api from './api'
 
 export const bookingService = {
+  // Fetch all bookings from API
   async getBookings() {
     const response = await api.get('/api/bookings')
     return response.data
