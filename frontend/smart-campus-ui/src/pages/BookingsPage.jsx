@@ -74,7 +74,7 @@ export default function BookingsPage() {
     [resources],
   )
 
-  // Enhanced booking filter with debounced search
+  // Enhanced booking filter with debounced search and multi-field matching
   const filteredBookings = useMemo(() => {
     const query = debouncedQuery.trim().toLowerCase()
 
