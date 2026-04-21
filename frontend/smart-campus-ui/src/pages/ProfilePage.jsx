@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { CalendarClock, Mail, PencilLine, ShieldCheck, UserRound } from 'lucide-react'
+import { CalendarClock, Mail, PencilLine, ShieldCheck, UserRound, CalendarDays } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import Skeleton from '../components/ui/Skeleton'
@@ -7,6 +7,7 @@ import { API_BASE_URL } from '../config/env'
 import { useAuth } from '../hooks/useAuth'
 import EditProfileForm from './EditProfileForm'
 import { profileService } from '../services/profileService'
+import { bookingService } from '../services/bookingService'
 
 function formatDate(value) {
   if (!value) return 'N/A'
@@ -19,6 +20,15 @@ function formatDate(value) {
   })
 }
 
+function getBookingStatusColor(status) {
+  switch (status) {
+    case 'APPROVED': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
+    case 'REJECTED': return 'text-rose-700 bg-rose-50 border-rose-200'
+    case 'PENDING': return 'text-amber-700 bg-amber-50 border-amber-200'
+    default: return 'text-slate-700 bg-slate-50 border-slate-200'
+  }
+}
+
 function resolveImageUrl(imageUrl) {
   if (!imageUrl) return ''
   if (/^https?:\/\//i.test(imageUrl)) return imageUrl
@@ -27,7 +37,9 @@ function resolveImageUrl(imageUrl) {
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null)
+  const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [bookingsLoading, setBookingsLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(false)
   const { refreshUser } = useAuth()
@@ -35,6 +47,7 @@ export default function ProfilePage() {
   useEffect(() => {
     let active = true
 
+    // Load profile data
     profileService.getMyProfile()
       .then((data) => {
         if (!active) return
@@ -45,8 +58,22 @@ export default function ProfilePage() {
         const message = requestError?.response?.data?.message || requestError?.response?.data?.error || 'Unable to load profile at the moment.'
         setError(message)
       })
+
+    // Load booking data
+    bookingService.getBookings()
+      .then((data) => {
+        if (!active) return
+        setBookings(data)
+      })
+      .catch((requestError) => {
+        if (!active) return
+        console.error('Failed to load bookings:', requestError)
+      })
       .finally(() => {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+          setBookingsLoading(false)
+        }
       })
 
     return () => {
@@ -169,6 +196,60 @@ export default function ProfilePage() {
             </div>
           </div>
         </article>
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.12 }}
+        className="glass-panel p-6"
+      >
+        <div className="mb-4 flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-slate-600" />
+          <h2 className="text-lg font-bold text-slate-900">My Bookings</h2>
+          {bookingsLoading && (
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+          )}
+        </div>
+
+        {bookings.length === 0 && !bookingsLoading ? (
+          <div className="text-center py-8">
+            <CalendarDays className="mx-auto h-12 w-12 text-slate-400 mb-3" />
+            <p className="text-sm text-slate-600">No bookings found</p>
+            <p className="text-xs text-slate-500 mt-1">Your booking requests will appear here</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {bookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-slate-900">{booking.resourceName}</h3>
+                      <span className={`rounded-full border px-2 py-1 text-xs font-medium ${getBookingStatusColor(booking.status)}`}>
+                        {booking.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      {formatDate(booking.startTime)} - {formatDate(booking.endTime)}
+                    </p>
+                    {booking.purpose && (
+                      <p className="mt-2 text-sm text-slate-700">Purpose: {booking.purpose}</p>
+                    )}
+                    {booking.reviewedBy && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Reviewed by {booking.reviewedBy} on {formatDate(booking.reviewedAt)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </motion.section>
 
       <EditProfileForm
