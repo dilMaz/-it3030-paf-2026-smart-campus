@@ -105,6 +105,7 @@ public class BookingController {
         }
     }
 
+    // Check for booking conflicts before creating/updating
     @GetMapping("/conflict-check")
     public ResponseEntity<Map<String, Boolean>> checkBookingConflict(
             @RequestParam String resourceId,
