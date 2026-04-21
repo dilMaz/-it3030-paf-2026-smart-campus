@@ -13,7 +13,7 @@ public class Notification {
     @Id
     private String id;
     private String userId;
-    private String type;
+    private NotificationType type;
     private String message;
     private String referenceId;
     private boolean isRead;

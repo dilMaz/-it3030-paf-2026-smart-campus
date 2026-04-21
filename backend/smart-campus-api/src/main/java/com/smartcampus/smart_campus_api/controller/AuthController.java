@@ -4,8 +4,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.time.Instant;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.http.HttpStatus;
@@ -30,9 +32,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.smartcampus.smart_campus_api.dto.LoginRequest;
+import com.smartcampus.smart_campus_api.dto.AuthResponse;
 import com.smartcampus.smart_campus_api.dto.RegisterRequest;
 import com.smartcampus.smart_campus_api.model.User;
 import com.smartcampus.smart_campus_api.repository.UserRepository;
+import com.smartcampus.smart_campus_api.service.JwtService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -47,6 +51,7 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ObjectProvider<JwtService> jwtServiceProvider;
     @Value("${app.admin.email:}")
     private String adminEmail;
     private static final Set<String> ALLOWED_ROLES = Set.of("USER", "ADMIN", "TECHNICIAN", "MANAGER");
@@ -85,17 +90,33 @@ public class AuthController {
         User user;
         if (existingUser.isPresent()) {
             user = existingUser.get();
+
+            if ((user.getProfileImageUrl() == null || user.getProfileImageUrl().isBlank())
+                    && picture != null && !picture.isBlank()) {
+                user.setProfileImageUrl(picture);
+            }
+
+            if (user.getCreatedAt() == null) {
+                user.setCreatedAt(Instant.now());
+            }
+
+            user.setUpdatedAt(Instant.now());
+
             if (isBootstrapAdminEmail(email) && !isAdmin(user)) {
                 user.setRoles(List.of("ADMIN"));
-                user = userRepository.save(user);
             }
+
+            user = userRepository.save(user);
         } else {
             user = new User();
             user.setEmail(email);
             user.setName(name);
             user.setPicture(picture);
+            user.setProfileImageUrl(picture);
             user.setGoogleId(googleId);
             user.setRoles(resolveInitialRoles(email));
+            user.setCreatedAt(Instant.now());
+            user.setUpdatedAt(Instant.now());
             user = userRepository.save(user);
         }
 
@@ -125,6 +146,8 @@ public class AuthController {
         user.setEmail(normalizedEmail);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRoles(resolveInitialRoles(normalizedEmail));
+        user.setCreatedAt(Instant.now());
+        user.setUpdatedAt(Instant.now());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(userRepository.save(user));
     }
@@ -149,8 +172,16 @@ public class AuthController {
         }
 
         User loggedInUser = authenticatedUser.get();
+        if (loggedInUser.getCreatedAt() == null) {
+            loggedInUser.setCreatedAt(Instant.now());
+        }
+        loggedInUser.setUpdatedAt(Instant.now());
+        loggedInUser = userRepository.save(loggedInUser);
+
         establishSessionAuthentication(loggedInUser, httpServletRequest);
-        return ResponseEntity.ok(loggedInUser);
+        JwtService jwtService = jwtServiceProvider.getIfAvailable();
+        String token = jwtService == null ? null : jwtService.generateToken(loggedInUser);
+        return ResponseEntity.ok(new AuthResponse(loggedInUser, token));
     }
 
     @GetMapping("/users")

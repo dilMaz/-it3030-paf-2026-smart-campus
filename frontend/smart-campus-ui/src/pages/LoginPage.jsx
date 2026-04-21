@@ -20,6 +20,7 @@ export default function LoginPage() {
 
   const handleGoogleLogin = () => {
     localStorage.removeItem('smartCampusUser')
+    localStorage.removeItem('smartCampusToken')
     sessionStorage.setItem(POST_LOGIN_STORAGE_KEY, from)
     window.location.href = authService.getGoogleLoginUrl()
   }
