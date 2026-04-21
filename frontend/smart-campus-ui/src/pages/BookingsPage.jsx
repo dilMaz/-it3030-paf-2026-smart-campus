@@ -39,7 +39,16 @@ function statusTone(status) {
 function formatDateTime(value) {
   if (!value) return '-'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+  if (Number.isNaN(date.getTime())) return value
+  
+  // Format as DD/MM/YYYY HH:MM
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0') // Months are 0-indexed
+  const year = date.getFullYear()
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  
+  return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
 // Comprehensive validation for booking date and time inputs
