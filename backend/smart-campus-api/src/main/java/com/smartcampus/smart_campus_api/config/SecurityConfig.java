@@ -1,5 +1,8 @@
 package com.smartcampus.smart_campus_api.config;
 
+import java.net.URI;
+import java.util.Set;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -16,6 +19,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private static final Set<String> FRONTEND_ORIGINS = Set.of(
+            "http://localhost:5173",
+            "http://localhost:5174");
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -39,8 +46,14 @@ public class SecurityConfig {
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             )
             .oauth2Login(oauth2 -> oauth2
-                .defaultSuccessUrl("http://localhost:5173/auth/callback", true)
-                .failureUrl("http://localhost:5173/login?error")
+                .successHandler((request, response, authentication) -> {
+                    String frontendBaseUrl = resolveFrontendBaseUrl(request);
+                    response.sendRedirect(frontendBaseUrl + "/auth/callback");
+                })
+                .failureHandler((request, response, exception) -> {
+                    String frontendBaseUrl = resolveFrontendBaseUrl(request);
+                    response.sendRedirect(frontendBaseUrl + "/login?error");
+                })
             );
 
         return http.build();
@@ -62,5 +75,36 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    private String resolveFrontendBaseUrl(jakarta.servlet.http.HttpServletRequest request) {
+        String origin = normalizeOrigin(request.getHeader("Origin"));
+        if (origin != null && FRONTEND_ORIGINS.contains(origin)) {
+            return origin;
+        }
+
+        String referer = request.getHeader("Referer");
+        String refererOrigin = normalizeOrigin(referer);
+        if (refererOrigin != null && FRONTEND_ORIGINS.contains(refererOrigin)) {
+            return refererOrigin;
+        }
+
+        return "http://localhost:5173";
+    }
+
+    private String normalizeOrigin(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            URI uri = URI.create(value);
+            if (uri.getScheme() == null || uri.getHost() == null || uri.getPort() < 0) {
+                return null;
+            }
+            return uri.getScheme() + "://" + uri.getHost() + ":" + uri.getPort();
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 }
