@@ -77,6 +77,7 @@ public class BookingController {
         }
     }
 
+    // Update existing booking with validation
     @PutMapping("/{bookingId}")
     public ResponseEntity<?> updateBooking(
             @PathVariable String bookingId,
