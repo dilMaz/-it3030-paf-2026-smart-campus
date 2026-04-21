@@ -17,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -51,15 +52,29 @@ public class AuthController {
     private static final Set<String> ALLOWED_ROLES = Set.of("USER", "ADMIN", "TECHNICIAN", "MANAGER");
 
     @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
+    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal Object principal) {
         if (principal == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
         }
 
-        String email = normalizeEmail(principal.getAttribute("email"));
-        String name = principal.getAttribute("name");
-        String picture = principal.getAttribute("picture");
-        String googleId = principal.getAttribute("sub");
+        if (!(principal instanceof OAuth2User oauth2User)) {
+            String email = normalizeEmail(extractEmail(principal));
+            if (email == null || email.isBlank()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Unable to resolve authenticated user"));
+            }
+
+            Optional<User> existingUser = findFirstUserByEmail(email);
+            if (existingUser.isEmpty()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authenticated user is not registered"));
+            }
+
+            return ResponseEntity.ok(existingUser.get());
+        }
+
+        String email = normalizeEmail(oauth2User.getAttribute("email"));
+        String name = oauth2User.getAttribute("name");
+        String picture = oauth2User.getAttribute("picture");
+        String googleId = oauth2User.getAttribute("sub");
 
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Google account does not provide an email"));
@@ -139,7 +154,7 @@ public class AuthController {
     }
 
     @GetMapping("/users")
-    public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal OAuth2User principal) {
+    public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal Object principal) {
         Optional<User> currentUser = resolveCurrentUser(principal);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
@@ -156,7 +171,7 @@ public class AuthController {
     public ResponseEntity<?> updateUserRole(
             @PathVariable String id,
             @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal OAuth2User principal) {
+            @AuthenticationPrincipal Object principal) {
 
         Optional<User> currentUser = resolveCurrentUser(principal);
         if (currentUser.isEmpty()) {
@@ -193,12 +208,12 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 
-    private Optional<User> resolveCurrentUser(OAuth2User principal) {
+    private Optional<User> resolveCurrentUser(Object principal) {
         if (principal == null) {
             return Optional.empty();
         }
 
-        String email = normalizeEmail(principal.getAttribute("email"));
+        String email = normalizeEmail(extractEmail(principal));
         if (email == null || email.isBlank()) {
             return Optional.empty();
         }
@@ -246,6 +261,20 @@ public class AuthController {
 
     private boolean isAdmin(User user) {
         return user.getRoles() != null && user.getRoles().contains("ADMIN");
+    }
+
+    private String extractEmail(Object principal) {
+        if (principal instanceof OAuth2User oauth2User) {
+            Object email = oauth2User.getAttribute("email");
+            return email instanceof String value ? value : null;
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        }
+        if (principal instanceof String value) {
+            return value;
+        }
+        return null;
     }
 
     private void establishSessionAuthentication(User user, HttpServletRequest request) {

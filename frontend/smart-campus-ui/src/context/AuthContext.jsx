@@ -66,7 +66,7 @@ export function AuthProvider({ children }) {
       active = false
       clearTimeout(timeoutId)
     }
-  }, [refreshUser, user])
+  }, [refreshUser])
 
   const login = useCallback(async (credentialsOrEmail, password) => {
     const credentials = typeof credentialsOrEmail === 'string'
