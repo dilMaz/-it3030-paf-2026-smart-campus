@@ -1,17 +1,22 @@
 package com.smartcampus.smart_campus_api.booking.controller;
 
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.smartcampus.smart_campus_api.booking.dto.BookingResponse;
@@ -53,5 +58,53 @@ public class BookingController {
             @PathVariable String bookingId,
             @AuthenticationPrincipal Object principal) {
         return ResponseEntity.ok(bookingService.rejectBooking(bookingId, principal));
+    }
+
+    @GetMapping("/{bookingId}")
+    public ResponseEntity<?> getBookingById(
+            @PathVariable String bookingId,
+            @AuthenticationPrincipal Object principal) {
+        try {
+            return ResponseEntity.ok(bookingService.getBookingById(bookingId, principal));
+        } catch (NoSuchElementException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", exception.getMessage()));
+        }
+    }
+
+    @PutMapping("/{bookingId}")
+    public ResponseEntity<?> updateBooking(
+            @PathVariable String bookingId,
+            @Valid @RequestBody CreateBookingRequest request,
+            @AuthenticationPrincipal Object principal) {
+        try {
+            return ResponseEntity.ok(bookingService.updateBooking(bookingId, request, principal));
+        } catch (NoSuchElementException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", exception.getMessage()));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{bookingId}")
+    public ResponseEntity<?> deleteBooking(
+            @PathVariable String bookingId,
+            @AuthenticationPrincipal Object principal) {
+        try {
+            bookingService.deleteBooking(bookingId, principal);
+            return ResponseEntity.noContent().build();
+        } catch (NoSuchElementException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", exception.getMessage()));
+        }
+    }
+
+    @GetMapping("/conflict-check")
+    public ResponseEntity<Map<String, Boolean>> checkBookingConflict(
+            @RequestParam String resourceId,
+            @RequestParam String startTime,
+            @RequestParam String endTime,
+            @RequestParam(required = false) String excludeBookingId,
+            @AuthenticationPrincipal Object principal) {
+        boolean hasConflict = bookingService.hasBookingConflict(resourceId, startTime, endTime, excludeBookingId);
+        return ResponseEntity.ok(Map.of("hasConflict", hasConflict));
     }
 }

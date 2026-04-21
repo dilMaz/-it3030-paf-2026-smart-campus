@@ -10,4 +10,8 @@ public interface BookingService {
     BookingResponse createBooking(CreateBookingRequest request, Object principal);
     BookingResponse approveBooking(String bookingId, Object principal);
     BookingResponse rejectBooking(String bookingId, Object principal);
+    BookingResponse getBookingById(String bookingId, Object principal);
+    BookingResponse updateBooking(String bookingId, CreateBookingRequest request, Object principal);
+    void deleteBooking(String bookingId, Object principal);
+    boolean hasBookingConflict(String resourceId, String startTime, String endTime, String excludeBookingId);
 }

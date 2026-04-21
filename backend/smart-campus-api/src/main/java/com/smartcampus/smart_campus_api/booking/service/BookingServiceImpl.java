@@ -1,6 +1,7 @@
 package com.smartcampus.smart_campus_api.booking.service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -111,6 +112,93 @@ public class BookingServiceImpl implements BookingService {
 
     private boolean hasRole(User user, String role) {
         return user.getRoles() != null && user.getRoles().stream().anyMatch(r -> role.equalsIgnoreCase(r));
+    }
+
+    @Override
+    public BookingResponse getBookingById(String bookingId, Object principal) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        Booking booking = findBookingOrThrow(bookingId);
+        
+        if (!hasRole(user, "ADMIN") && !booking.getUserId().equals(user.getId())) {
+            userAuthorizationService.requireAnyRole(user, "USER");
+            throw new IllegalArgumentException("Access denied to this booking");
+        }
+        
+        return toResponse(booking);
+    }
+
+    @Override
+    public BookingResponse updateBooking(String bookingId, CreateBookingRequest request, Object principal) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        userAuthorizationService.requireAnyRole(user, "USER", "ADMIN");
+        
+        Booking booking = findBookingOrThrow(bookingId);
+        
+        if (!hasRole(user, "ADMIN") && !booking.getUserId().equals(user.getId())) {
+            throw new IllegalArgumentException("Access denied to update this booking");
+        }
+        
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending bookings can be updated");
+        }
+        
+        Resource resource = resourceRepository.findById(request.resourceId())
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found for id: " + request.resourceId()));
+        
+        if (resource.getStatus() != ResourceStatus.ACTIVE) {
+            throw new IllegalArgumentException("Resource is not available for booking");
+        }
+        
+        booking.setResourceId(resource.getId());
+        booking.setResourceName(resource.getName());
+        booking.setStartTime(request.startTime());
+        booking.setEndTime(request.endTime());
+        booking.setPurpose(request.purpose() == null ? null : request.purpose().trim());
+        
+        return toResponse(bookingRepository.save(booking));
+    }
+
+    @Override
+    public void deleteBooking(String bookingId, Object principal) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        userAuthorizationService.requireAnyRole(user, "USER", "ADMIN");
+        
+        Booking booking = findBookingOrThrow(bookingId);
+        
+        if (!hasRole(user, "ADMIN") && !booking.getUserId().equals(user.getId())) {
+            throw new IllegalArgumentException("Access denied to delete this booking");
+        }
+        
+        if (booking.getStatus() == BookingStatus.APPROVED) {
+            throw new IllegalArgumentException("Approved bookings cannot be deleted");
+        }
+        
+        bookingRepository.delete(booking);
+    }
+
+    @Override
+    public boolean hasBookingConflict(String resourceId, String startTime, String endTime, String excludeBookingId) {
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+        LocalDateTime start = LocalDateTime.parse(startTime, formatter);
+        LocalDateTime end = LocalDateTime.parse(endTime, formatter);
+        
+        List<Booking> existingBookings = bookingRepository.findByResourceIdAndStatus(resourceId, BookingStatus.APPROVED);
+        
+        for (Booking booking : existingBookings) {
+            if (excludeBookingId != null && excludeBookingId.equals(booking.getId())) {
+                continue;
+            }
+            
+            if (isTimeOverlap(start, end, booking.getStartTime(), booking.getEndTime())) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private boolean isTimeOverlap(LocalDateTime start1, LocalDateTime end1, LocalDateTime start2, LocalDateTime end2) {
+        return start1.isBefore(end2) && start2.isBefore(end1);
     }
 
     private BookingResponse toResponse(Booking booking) {
