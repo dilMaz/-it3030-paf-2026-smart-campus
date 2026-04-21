@@ -32,6 +32,7 @@ import com.smartcampus.smart_campus_api.service.NotificationService;
 @WebMvcTest(controllers = { AuthController.class, NotificationController.class })
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = "app.admin.email=admin@campus.com")
+@SuppressWarnings("null")
 class AccessControlTest {
 
     @Autowired

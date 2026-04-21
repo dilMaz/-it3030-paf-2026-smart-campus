@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +30,7 @@ import com.smartcampus.smart_campus_api.service.FacilityService;
 
 @WebMvcTest(controllers = FacilityController.class)
 @Import(SecurityConfig.class)
+@SuppressWarnings("null")
 class FacilityControllerAccessTest {
 
     @Autowired
