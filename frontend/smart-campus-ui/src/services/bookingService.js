@@ -14,6 +14,7 @@ export const bookingService = {
     return response.data
   },
 
+  // Approve booking via API
   async approveBooking(id) {
     const response = await api.patch(`/api/bookings/${id}/approve`)
     return response.data
