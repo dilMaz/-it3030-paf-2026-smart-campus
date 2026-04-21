@@ -217,16 +217,23 @@ useEffect(() => {
       <section className="glass-panel p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-2xl font-bold text-slate-900">Resource Bookings</h2>
+            <h2 className="font-display text-2xl font-bold text-slate-900">
+              {isAdmin ? 'Booking Requests Management' : 'Resource Bookings'}
+            </h2>
             <p className="mt-1 text-sm text-slate-600">
-              Users can request bookings for active resources. Admins can review and approve or reject requests.
+              {isAdmin 
+                ? 'Review and approve or reject pending booking requests from users.'
+                : 'Request bookings for active resources and track their status.'
+              }
             </p>
           </div>
         </div>
       </section>
 
-      <section className="glass-panel p-6">
-        <h3 className="mb-4 font-display text-lg font-bold text-slate-900">Create Booking</h3>
+      {/* Only show create booking form for users, not admins */}
+      {!isAdmin && (
+        <section className="glass-panel p-6">
+          <h3 className="mb-4 font-display text-lg font-bold text-slate-900">Create Booking</h3>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreateBooking}>
           <label className="block md:col-span-2">
             <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Resource</span>
@@ -289,7 +296,8 @@ useEffect(() => {
             </button>
           </div>
         </form>
-      </section>
+        </section>
+      )}
 
       <section className="glass-panel p-6">
         <h3 className="mb-4 font-display text-lg font-bold text-slate-900">Filter Bookings</h3>
@@ -413,26 +421,29 @@ useEffect(() => {
         </section>
       ) : null}
 
-      <section className="glass-panel p-6">
-        <h3 className="mb-3 font-display text-lg font-bold text-slate-900">Available Resources</h3>
-        {activeResources.length === 0 ? (
-          <p className="text-sm text-slate-600">No active resources available right now.</p>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {activeResources.map((resource) => (
-              <div key={resource.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="font-semibold text-slate-900">{resource.name}</p>
-                <p className="mt-1 text-sm text-slate-600">{resource.type} | Capacity {resource.capacity}</p>
-                <p className="mt-1 text-sm text-slate-600">{resource.location}</p>
-                <p className="mt-1 text-xs text-slate-500 inline-flex items-center gap-1">
-                  <Clock3 className="h-3.5 w-3.5" />
-                  {resource.availableFrom} - {resource.availableTo}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Only show available resources to users, not admins */}
+      {!isAdmin && (
+        <section className="glass-panel p-6">
+          <h3 className="mb-3 font-display text-lg font-bold text-slate-900">Available Resources</h3>
+          {activeResources.length === 0 ? (
+            <p className="text-sm text-slate-600">No active resources available right now.</p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {activeResources.map((resource) => (
+                <div key={resource.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="font-semibold text-slate-900">{resource.name}</p>
+                  <p className="mt-1 text-sm text-slate-600">{resource.type} | Capacity {resource.capacity}</p>
+                  <p className="mt-1 text-sm text-slate-600">{resource.location}</p>
+                  <p className="mt-1 text-xs text-slate-500 inline-flex items-center gap-1">
+                    <Clock3 className="h-3.5 w-3.5" />
+                    {resource.availableFrom} - {resource.availableTo}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   )
 }
