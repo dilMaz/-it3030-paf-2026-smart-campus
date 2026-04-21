@@ -35,6 +35,7 @@ public class BookingController {
 
     private final BookingService bookingService;
 
+    // Get all bookings for authenticated user
     @GetMapping
     public ResponseEntity<List<BookingResponse>> getBookings(@AuthenticationPrincipal Object principal) {
         return ResponseEntity.ok(bookingService.getBookings(principal));
