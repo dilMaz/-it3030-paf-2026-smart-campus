@@ -92,6 +92,7 @@ public class BookingController {
         }
     }
 
+    // Delete booking with authorization and status checks
     @DeleteMapping("/{bookingId}")
     public ResponseEntity<?> deleteBooking(
             @PathVariable String bookingId,
