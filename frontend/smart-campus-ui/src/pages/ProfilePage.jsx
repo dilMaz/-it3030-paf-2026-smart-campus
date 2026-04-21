@@ -204,6 +204,7 @@ export default function ProfilePage() {
         transition={{ delay: 0.12 }}
         className="glass-panel p-6"
       >
+        {/* User booking management section */}
         <div className="mb-4 flex items-center gap-2">
           <CalendarDays className="h-5 w-5 text-slate-600" />
           <h2 className="text-lg font-bold text-slate-900">My Bookings</h2>
