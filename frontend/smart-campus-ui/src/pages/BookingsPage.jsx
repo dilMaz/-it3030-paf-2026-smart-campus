@@ -42,6 +42,58 @@ function formatDateTime(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
 }
 
+// Validation functions for booking form
+function validateDateTime(dateTimeString) {
+  if (!dateTimeString) return 'Date and time are required'
+  
+  const date = new Date(dateTimeString)
+  if (Number.isNaN(date.getTime())) return 'Invalid date format'
+  
+  const now = new Date()
+  if (date < now) return 'Booking date cannot be in the past'
+  
+  // Check year is 20XX format
+  const year = date.getFullYear()
+  if (year < 2000 || year > 2099) return 'Year must be between 2000 and 2099'
+  
+  // Check month is 1-12
+  const month = date.getMonth() + 1 // JavaScript months are 0-11
+  if (month < 1 || month > 12) return 'Month must be between 1 and 12'
+  
+  // Check day is 1-31
+  const day = date.getDate()
+  if (day < 1 || day > 31) return 'Day must be between 1 and 31'
+  
+  // Check if the date is actually valid (handles cases like Feb 31)
+  const isValidDate = date.getDate() === parseInt(dateTimeString.split('-')[2].split('T')[0])
+  if (!isValidDate) return 'Invalid date for the selected month'
+  
+  return null // No error
+}
+
+function validateBookingTimes(startTime, endTime) {
+  const startError = validateDateTime(startTime)
+  if (startError) return startError
+  
+  const endError = validateDateTime(endTime)
+  if (endError) return endError
+  
+  const startDate = new Date(startTime)
+  const endDate = new Date(endTime)
+  
+  if (endDate <= startDate) return 'End time must be after start time'
+  
+  // Check if booking duration is reasonable (max 24 hours)
+  const durationMs = endDate - startDate
+  const durationHours = durationMs / (1000 * 60 * 60)
+  if (durationHours > 24) return 'Booking duration cannot exceed 24 hours'
+  
+  // Check if booking duration is at least 30 minutes
+  if (durationHours < 0.5) return 'Booking duration must be at least 30 minutes'
+  
+  return null // No error
+}
+
 export default function BookingsPage() {
   const { roles } = useAuth()
   const isAdmin = useMemo(() => roles.includes('ADMIN'), [roles])
@@ -67,6 +119,11 @@ export default function BookingsPage() {
     startTime: toLocalDateTimeValue(),
     endTime: toLocalDateTimeValue(new Date(Date.now() + 60 * 60 * 1000)),
     purpose: '',
+  })
+
+  const [validationErrors, setValidationErrors] = useState({
+    startTime: '',
+    endTime: '',
   })
 
   const activeResources = useMemo(
@@ -159,11 +216,51 @@ useEffect(() => {
     setAppliedFilters(defaultFilters)
   }
 
+  // Real-time validation handlers
+  const handleStartTimeChange = (value) => {
+    setForm((current) => ({ ...current, startTime: value }))
+    
+    // Clear validation errors when user starts typing
+    setValidationErrors((current) => ({ ...current, startTime: '' }))
+    
+    // Validate end time if it's already set
+    if (form.endTime) {
+      const error = validateBookingTimes(value, form.endTime)
+      setValidationErrors((current) => ({ ...current, endTime: error || '' }))
+    }
+  }
+
+  const handleEndTimeChange = (value) => {
+    setForm((current) => ({ ...current, endTime: value }))
+    
+    // Clear validation errors when user starts typing
+    setValidationErrors((current) => ({ ...current, endTime: '' }))
+    
+    // Validate end time
+    const error = validateBookingTimes(form.startTime, value)
+    setValidationErrors((current) => ({ ...current, endTime: error || '' }))
+  }
+
   const handleCreateBooking = async (event) => {
     event.preventDefault()
     setSaving(true)
     setError('')
     setSuccess('')
+
+    // Validate form inputs
+    if (!form.resourceId) {
+      setError('Please select a resource')
+      setSaving(false)
+      return
+    }
+
+    // Validate date and time
+    const timeValidationError = validateBookingTimes(form.startTime, form.endTime)
+    if (timeValidationError) {
+      setError(timeValidationError)
+      setSaving(false)
+      return
+    }
 
     try {
       await bookingService.createBooking({
@@ -257,10 +354,18 @@ useEffect(() => {
             <input
               type="datetime-local"
               value={form.startTime}
-              onChange={(event) => setForm((current) => ({ ...current, startTime: event.target.value }))}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+              onChange={(event) => handleStartTimeChange(event.target.value)}
+              min={toLocalDateTimeValue()}
+              className={`w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none ${
+                validationErrors.startTime 
+                  ? 'border-rose-300 bg-rose-50 focus:border-rose-500' 
+                  : 'border-slate-300 bg-white focus:border-blue-500'
+              }`}
               required
             />
+            {validationErrors.startTime && (
+              <p className="mt-1 text-xs text-rose-600">{validationErrors.startTime}</p>
+            )}
           </label>
 
           <label className="block">
@@ -268,10 +373,18 @@ useEffect(() => {
             <input
               type="datetime-local"
               value={form.endTime}
-              onChange={(event) => setForm((current) => ({ ...current, endTime: event.target.value }))}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+              onChange={(event) => handleEndTimeChange(event.target.value)}
+              min={form.startTime || toLocalDateTimeValue()}
+              className={`w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none ${
+                validationErrors.endTime 
+                  ? 'border-rose-300 bg-rose-50 focus:border-rose-500' 
+                  : 'border-slate-300 bg-white focus:border-blue-500'
+              }`}
               required
             />
+            {validationErrors.endTime && (
+              <p className="mt-1 text-xs text-rose-600">{validationErrors.endTime}</p>
+            )}
           </label>
 
           <label className="block md:col-span-2">
