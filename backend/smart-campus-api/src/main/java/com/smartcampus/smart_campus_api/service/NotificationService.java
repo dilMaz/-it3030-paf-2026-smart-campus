@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.smartcampus.smart_campus_api.model.Notification;
+import com.smartcampus.smart_campus_api.model.NotificationType;
 import com.smartcampus.smart_campus_api.repository.NotificationRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
 
-    public Notification createNotification(String userId, String type, String message, String referenceId) {
+    public Notification createNotification(String userId, NotificationType type, String message, String referenceId) {
         Notification notification = new Notification();
         notification.setUserId(userId);
         notification.setType(type);
@@ -41,6 +42,31 @@ public class NotificationService {
         Notification notification = getNotificationById(notificationId);
         notification.setRead(true);
         return notificationRepository.save(notification);
+    }
+
+    public Notification markAsRead(String notificationId, String userId, boolean isAdmin) {
+        Notification notification = getNotificationById(notificationId);
+        if (!isAdmin && !notification.getUserId().equals(userId)) {
+            throw new RuntimeException("Forbidden");
+        }
+
+        if (notification.isRead()) {
+            return notification;
+        }
+
+        notification.setRead(true);
+        return notificationRepository.save(notification);
+    }
+
+    public long markAllAsRead(String userId) {
+        List<Notification> unreadNotifications = notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId);
+        if (unreadNotifications.isEmpty()) {
+            return 0L;
+        }
+
+        unreadNotifications.forEach(notification -> notification.setRead(true));
+        notificationRepository.saveAll(unreadNotifications);
+        return unreadNotifications.size();
     }
 
     public void deleteNotification(String notificationId) {
