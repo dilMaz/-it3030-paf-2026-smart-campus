@@ -47,26 +47,26 @@ function validateDateTime(dateTimeString) {
   if (!dateTimeString) return 'Date and time are required'
   
   const date = new Date(dateTimeString)
-  if (Number.isNaN(date.getTime())) return 'value must be a valid number'
+  if (Number.isNaN(date.getTime())) return 'Please select a valid date and time'
   
   const now = new Date()
   if (date < now) return 'Booking date cannot be in the past'
   
   // Check year is 20XX format
   const year = date.getFullYear()
-  if (year < 2000 || year > 2099) return 'value must be a valid number'
+  if (year < 2000 || year > 2099) return 'Please select a year between 2000 and 2099'
   
   // Check month is 1-12
   const month = date.getMonth() + 1 // JavaScript months are 0-11
-  if (month < 1 || month > 12) return 'value must be a valid number'
+  if (month < 1 || month > 12) return 'Please select a valid month'
   
   // Check day is 1-31
   const day = date.getDate()
-  if (day < 1 || day > 31) return 'value must be a valid number'
+  if (day < 1 || day > 31) return 'Please select a valid day'
   
   // Check if the date is actually valid (handles cases like Feb 31)
   const isValidDate = date.getDate() === parseInt(dateTimeString.split('-')[2].split('T')[0])
-  if (!isValidDate) return 'value must be a valid number'
+  if (!isValidDate) return 'Please select a valid date for the selected month'
   
   return null // No error
 }
