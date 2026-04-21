@@ -11,7 +11,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { register } = useAuth()
+  const { signup } = useAuth()
   const navigate = useNavigate()
 
   const handleGoogleLogin = () => {
@@ -25,10 +25,10 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      await register({ name, email, password })
+      await signup({ name, email, password, confirmPassword: password })
       navigate('/login')
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create account')
+      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to create account')
     } finally {
       setLoading(false)
     }
