@@ -24,10 +24,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.smartcampus.smart_campus_api.config.SecurityConfig;
+import com.smartcampus.smart_campus_api.exception.UnauthorizedAccessException;
 import com.smartcampus.smart_campus_api.model.Notification;
 import com.smartcampus.smart_campus_api.model.User;
 import com.smartcampus.smart_campus_api.repository.UserRepository;
 import com.smartcampus.smart_campus_api.service.NotificationService;
+import com.smartcampus.smart_campus_api.service.UserAuthorizationService;
 
 @WebMvcTest(controllers = { AuthController.class, NotificationController.class })
 @Import(SecurityConfig.class)
@@ -45,6 +47,9 @@ class AccessControlTest {
     private NotificationService notificationService;
 
     @MockitoBean
+    private UserAuthorizationService userAuthorizationService;
+
+    @MockitoBean
     @SuppressWarnings("unused")
     private ClientRegistrationRepository clientRegistrationRepository;
 
@@ -54,6 +59,9 @@ class AccessControlTest {
 
     @Test
     void getUsersWithoutAuthenticationReturns401() throws Exception {
+        when(userAuthorizationService.requireAuthenticatedUser(any()))
+            .thenThrow(new UnauthorizedAccessException("Not authenticated"));
+
         mockMvc.perform(get("/api/auth/users"))
                 .andExpect(status().isUnauthorized());
     }
@@ -61,7 +69,7 @@ class AccessControlTest {
     @Test
     void getUsersAsNonAdminReturns403() throws Exception {
         User nonAdmin = user("u-1", "user1@campus.com", List.of("USER"));
-        when(userRepository.findAllByEmail("user1@campus.com")).thenReturn(List.of(nonAdmin));
+        when(userAuthorizationService.requireAuthenticatedUser(any())).thenReturn(nonAdmin);
 
         mockMvc.perform(get("/api/auth/users")
                         .with(oauth2Login().attributes(attrs -> attrs.put("email", "user1@campus.com"))))
