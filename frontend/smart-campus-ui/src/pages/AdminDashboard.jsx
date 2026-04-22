@@ -38,7 +38,7 @@ const QUICK_LINKS = [
     icon: Bell,
   },
   {
-    title: 'System Settings',
+    title: 'User Management',
     description: 'Manage user roles and platform access.',
     to: '/admin/users',
     icon: Settings,
