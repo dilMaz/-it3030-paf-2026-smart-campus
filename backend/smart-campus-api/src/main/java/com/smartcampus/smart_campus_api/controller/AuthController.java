@@ -140,6 +140,12 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Passwords do not match"));
         }
 
+        if (!isStrongPassword(request.password())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error",
+                    "Password must be at least 8 characters and include uppercase, lowercase, number, and special character"));
+        }
+
         if (findFirstUserByEmail(normalizedEmail).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Email already registered"));
         }
@@ -297,6 +303,31 @@ public class AuthController {
 
     private boolean isAdmin(User user) {
         return user.getRoles() != null && user.getRoles().contains("ADMIN");
+    }
+
+    private boolean isStrongPassword(String password) {
+        if (password == null || password.length() < 8) {
+            return false;
+        }
+
+        boolean hasUpper = false;
+        boolean hasLower = false;
+        boolean hasDigit = false;
+        boolean hasSpecial = false;
+
+        for (char character : password.toCharArray()) {
+            if (Character.isUpperCase(character)) {
+                hasUpper = true;
+            } else if (Character.isLowerCase(character)) {
+                hasLower = true;
+            } else if (Character.isDigit(character)) {
+                hasDigit = true;
+            } else if (!Character.isWhitespace(character)) {
+                hasSpecial = true;
+            }
+        }
+
+        return hasUpper && hasLower && hasDigit && hasSpecial;
     }
 
     private String extractEmail(Object principal) {
