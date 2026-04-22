@@ -115,6 +115,17 @@ function ResourceTypePie({ data }) {
             {item.count > 0 ? (
               <line x1={lineStart.x} y1={lineStart.y} x2={lineEnd.x} y2={lineEnd.y} stroke={item.color} strokeWidth="1.5" />
             ) : null}
+            <text
+              x={lineEnd.x + (lineEnd.x >= cx ? 8 : -8)}
+              y={lineEnd.y}
+              textAnchor={lineEnd.x >= cx ? 'start' : 'end'}
+              dominantBaseline="middle"
+              fill={item.color}
+              fontSize="12"
+              fontWeight="700"
+            >
+              {item.count}
+            </text>
           </g>
         )
       })}
