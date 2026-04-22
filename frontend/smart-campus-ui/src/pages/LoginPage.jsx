@@ -28,6 +28,11 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    if (loading) {
+      return
+    }
+
     setError('')
 
     const trimmedEmail = email.trim()

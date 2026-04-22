@@ -25,6 +25,11 @@ export default function SignupPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    if (loading) {
+      return
+    }
+
     setError('')
 
     const trimmedName = name.trim()
