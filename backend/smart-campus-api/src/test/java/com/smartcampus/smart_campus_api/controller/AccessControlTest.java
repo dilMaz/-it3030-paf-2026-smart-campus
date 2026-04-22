@@ -128,6 +128,41 @@ class AccessControlTest {
                 .andExpect(jsonPath("$.roles[0]").value("USER"));
     }
 
+    @Test
+    void registerWithoutEmailReturns400() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"name\":\"Missing Email\"," +
+                                "\"password\":\"Password123!\"," +
+                                "\"confirmPassword\":\"Password123!\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void registerWithInvalidEmailReturns400() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"name\":\"Invalid Email\"," +
+                                "\"email\":\"invalid-email\"," +
+                                "\"password\":\"Password123!\"," +
+                                "\"confirmPassword\":\"Password123!\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void registerWithWeakPasswordReturns400() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"name\":\"Weak Password\"," +
+                                "\"email\":\"weak@campus.com\"," +
+                                "\"password\":\"password\"," +
+                                "\"confirmPassword\":\"password\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
     private User user(String id, String email, List<String> roles) {
         User user = new User();
         user.setId(id);
