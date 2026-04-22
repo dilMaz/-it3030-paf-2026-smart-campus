@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { authService } from '../services/authService'
 
 const POST_LOGIN_STORAGE_KEY = 'smartCampusPostLoginPath'
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -28,10 +29,27 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) {
+      setError('Email is required')
+      return
+    }
+
+    if (!EMAIL_PATTERN.test(trimmedEmail)) {
+      setError('Please enter a valid email address')
+      return
+    }
+
+    if (!password) {
+      setError('Password is required')
+      return
+    }
+
     setLoading(true)
 
     try {
-      await login({ email, password })
+      await login({ email: trimmedEmail, password })
       navigate(from, { replace: true })
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to login')
