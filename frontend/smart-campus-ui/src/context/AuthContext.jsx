@@ -1,9 +1,8 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { authService } from '../services/authService'
+import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY } from '../constants/authStorage'
 
 export const AuthContext = createContext(null)
-const STORAGE_KEY = 'smartCampusUser'
-const TOKEN_STORAGE_KEY = 'smartCampusToken'
 const SESSION_CHECK_TIMEOUT_MS = 10000
 
 function normalizeRole(role) {
@@ -15,7 +14,7 @@ function normalizeRole(role) {
 
 function getSavedUser() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
+    return JSON.parse(localStorage.getItem(AUTH_USER_STORAGE_KEY) || 'null')
   } catch {
     return null
   }
@@ -28,9 +27,9 @@ export function AuthProvider({ children }) {
   const saveUser = useCallback((nextUser) => {
     setUser(nextUser)
     if (nextUser) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser))
+      localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(nextUser))
     } else {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(AUTH_USER_STORAGE_KEY)
     }
   }, [])
 
@@ -41,7 +40,7 @@ export function AuthProvider({ children }) {
       return currentUser
     } catch {
       saveUser(null)
-      localStorage.removeItem(TOKEN_STORAGE_KEY)
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
       return null
     }
   }, [saveUser])
@@ -79,7 +78,7 @@ export function AuthProvider({ children }) {
     const loggedInUser = loginResponse?.user || loginResponse
 
     if (loginResponse?.token) {
-      localStorage.setItem(TOKEN_STORAGE_KEY, loginResponse.token)
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, loginResponse.token)
     }
 
     saveUser(loggedInUser)
@@ -97,7 +96,7 @@ export function AuthProvider({ children }) {
       // Ignore API logout failures and still clear local state.
     }
     saveUser(null)
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
   }, [saveUser])
 
   const roles = useMemo(() => {

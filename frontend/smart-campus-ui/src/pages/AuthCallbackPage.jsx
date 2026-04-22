@@ -2,8 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
-
-const POST_LOGIN_STORAGE_KEY = 'smartCampusPostLoginPath'
+import { POST_LOGIN_STORAGE_KEY } from '../constants/authStorage'
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate()

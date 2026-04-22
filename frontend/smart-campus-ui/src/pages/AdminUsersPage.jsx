@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import Skeleton from '../components/ui/Skeleton'
 import StatusBadge from '../components/ui/StatusBadge'
+import { AUTH_USER_STORAGE_KEY } from '../constants/authStorage'
 import api from '../services/api'
 
 const roleOptions = ['USER', 'ADMIN', 'TECHNICIAN', 'MANAGER']
@@ -17,7 +18,7 @@ export default function AdminUsersPage() {
 
   const currentUser = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('smartCampusUser') || 'null')
+      return JSON.parse(localStorage.getItem(AUTH_USER_STORAGE_KEY) || 'null')
     } catch {
       return null
     }

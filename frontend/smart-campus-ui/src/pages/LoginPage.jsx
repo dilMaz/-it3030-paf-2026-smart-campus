@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { authService } from '../services/authService'
+import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY, POST_LOGIN_STORAGE_KEY } from '../constants/authStorage'
 import { getAuthErrorMessage } from '../utils/authError'
 
-const POST_LOGIN_STORAGE_KEY = 'smartCampusPostLoginPath'
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function LoginPage() {
@@ -22,8 +22,8 @@ export default function LoginPage() {
   const from = location.state?.from?.pathname || '/dashboard'
 
   const handleGoogleLogin = () => {
-    localStorage.removeItem('smartCampusUser')
-    localStorage.removeItem('smartCampusToken')
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY)
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
     sessionStorage.setItem(POST_LOGIN_STORAGE_KEY, from)
     window.location.href = authService.getGoogleLoginUrl()
   }

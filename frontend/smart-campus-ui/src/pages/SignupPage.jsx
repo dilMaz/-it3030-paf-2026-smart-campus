@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { authService } from '../services/authService'
+import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY } from '../constants/authStorage'
 import { getAuthErrorMessage } from '../utils/authError'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -21,8 +22,8 @@ export default function SignupPage() {
   const navigate = useNavigate()
 
   const handleGoogleLogin = () => {
-    localStorage.removeItem('smartCampusUser')
-    localStorage.removeItem('smartCampusToken')
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY)
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
     window.location.href = authService.getGoogleLoginUrl()
   }
 
