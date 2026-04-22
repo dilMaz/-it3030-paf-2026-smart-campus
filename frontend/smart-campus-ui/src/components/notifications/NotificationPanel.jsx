@@ -160,7 +160,7 @@ export default function NotificationPanel({
                         event.stopPropagation()
                         onDelete(notification.id)
                       }}
-                      className="rounded-md border border-slate-200 bg-white p-1 text-slate-400 transition hover:border-rose-300 hover:text-rose-600"
+                      className="soft-delete-icon-button p-1"
                       title="Delete notification"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

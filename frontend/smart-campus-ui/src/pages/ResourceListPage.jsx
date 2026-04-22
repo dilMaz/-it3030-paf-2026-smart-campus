@@ -325,7 +325,7 @@ export default function ResourceListPage() {
                           <button
                             type="button"
                             onClick={() => handleDeleteResource(resource)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                            className="soft-delete-button gap-1 rounded-lg px-2.5 py-1.5"
                           >
                             <Trash2 className="h-3.5 w-3.5" /> Delete
                           </button>
@@ -362,7 +362,7 @@ export default function ResourceListPage() {
                     <button
                       type="button"
                       onClick={() => handleDeleteResource(resource)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                      className="soft-delete-button gap-1 rounded-lg px-2.5 py-1.5"
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Delete
                     </button>

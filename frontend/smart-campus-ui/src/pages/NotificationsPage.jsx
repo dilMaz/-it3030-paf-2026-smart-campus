@@ -332,7 +332,7 @@ export default function NotificationsPage() {
                     <button
                       type="button"
                       onClick={() => deleteNotification(notification.id)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                      className="soft-delete-button gap-2 px-3 py-2"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Delete
