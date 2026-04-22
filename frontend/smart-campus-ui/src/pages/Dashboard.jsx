@@ -10,7 +10,7 @@ export default function Dashboard() {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
           <Link
-            to="/resources"
+            to="/facilities"
             className="flex-1 py-3 px-8 rounded-xl bg-gradient-to-r from-slate-900 to-slate-700 text-white font-semibold shadow-lg hover:from-slate-800 hover:to-slate-600 transition text-lg"
           >
             Manage Resources
