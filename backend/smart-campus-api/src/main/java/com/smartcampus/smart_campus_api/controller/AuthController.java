@@ -34,6 +34,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.smartcampus.smart_campus_api.dto.LoginRequest;
 import com.smartcampus.smart_campus_api.dto.AuthResponse;
 import com.smartcampus.smart_campus_api.dto.RegisterRequest;
+import com.smartcampus.smart_campus_api.exception.ForbiddenOperationException;
+import com.smartcampus.smart_campus_api.exception.ResourceNotFoundException;
+import com.smartcampus.smart_campus_api.exception.UnauthorizedAccessException;
 import com.smartcampus.smart_campus_api.model.User;
 import com.smartcampus.smart_campus_api.repository.UserRepository;
 import com.smartcampus.smart_campus_api.service.JwtService;
@@ -63,18 +66,18 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal Object principal) {
         if (principal == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+            throw new UnauthorizedAccessException("Not authenticated");
         }
 
         if (!(principal instanceof OAuth2User oauth2User)) {
             String email = normalizeEmail(extractEmail(principal));
             if (email == null || email.isBlank()) {
-                return ResponseEntity.status(401).body(Map.of("error", "Unable to resolve authenticated user"));
+                throw new UnauthorizedAccessException("Unable to resolve authenticated user");
             }
 
             Optional<User> existingUser = findFirstUserByEmail(email);
             if (existingUser.isEmpty()) {
-                return ResponseEntity.status(401).body(Map.of("error", "Authenticated user is not registered"));
+                throw new UnauthorizedAccessException("Authenticated user is not registered");
             }
 
             return ResponseEntity.ok(existingUser.get());
@@ -86,7 +89,7 @@ public class AuthController {
         String googleId = oauth2User.getAttribute("sub");
 
         if (email == null || email.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Google account does not provide an email"));
+            throw new IllegalArgumentException("Google account does not provide an email");
         }
 
         Optional<User> existingUser = findFirstUserByEmail(email);
@@ -136,21 +139,20 @@ public class AuthController {
         if (cleanedName == null || cleanedName.isBlank()
                 || normalizedEmail == null || normalizedEmail.isBlank()
                 || request.password() == null || request.password().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Name, email, and password are required"));
+            throw new IllegalArgumentException("Name, email, and password are required");
         }
 
         if (!request.password().equals(request.confirmPassword())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Passwords do not match"));
+            throw new IllegalArgumentException("Passwords do not match");
         }
 
         if (!isStrongPassword(request.password())) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error",
-                    "Password must be at least 8 characters and include uppercase, lowercase, number, and special character"));
+            throw new IllegalArgumentException(
+                    "Password must be at least 8 characters and include uppercase, lowercase, number, and special character");
         }
 
         if (findFirstUserByEmail(normalizedEmail).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Email already registered"));
+            throw new IllegalArgumentException("Email already registered");
         }
 
         User user = new User();
@@ -168,7 +170,7 @@ public class AuthController {
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpServletRequest) {
         if (request.email() == null || request.email().isBlank()
                 || request.password() == null || request.password().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Email and password are required"));
+            throw new IllegalArgumentException("Email and password are required");
         }
 
         String normalizedEmail = normalizeEmail(request.email());
@@ -181,7 +183,7 @@ public class AuthController {
 
         if (authenticatedUser.isEmpty()) {
             passwordEncoder.matches(request.password(), DUMMY_BCRYPT_HASH);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid email or password"));
+            throw new UnauthorizedAccessException("Invalid email or password");
         }
 
         User loggedInUser = authenticatedUser.get();
@@ -202,7 +204,7 @@ public class AuthController {
     public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal Object principal) {
         User currentUser = userAuthorizationService.requireAuthenticatedUser(principal);
         if (!isAdmin(currentUser)) {
-            return ResponseEntity.status(403).body(Map.of("error", "Only admins can view all users"));
+            throw new ForbiddenOperationException("Only admins can view all users");
         }
 
         return ResponseEntity.ok(userRepository.findAll());
@@ -216,17 +218,17 @@ public class AuthController {
 
         User currentUser = userAuthorizationService.requireAuthenticatedUser(principal);
         if (!isAdmin(currentUser)) {
-            return ResponseEntity.status(403).body(Map.of("error", "Only admins can update roles"));
+            throw new ForbiddenOperationException("Only admins can update roles");
         }
 
         String newRole = body.get("role");
         if (newRole == null || !ALLOWED_ROLES.contains(newRole)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid role"));
+            throw new IllegalArgumentException("Invalid role");
         }
 
         Optional<User> optionalUser = userRepository.findById(id);
         if (optionalUser.isEmpty()) {
-            return ResponseEntity.notFound().build();
+            throw new ResourceNotFoundException("User not found");
         }
 
         User user = optionalUser.get();
