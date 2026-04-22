@@ -88,7 +88,12 @@ export default function LoginPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="mt-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 shadow-sm">
+                <div
+                  id="login-form-error"
+                  role="alert"
+                  aria-live="polite"
+                  className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 shadow-sm"
+                >
                   {error}
                 </div>
               )}
@@ -106,6 +111,8 @@ export default function LoginPage() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      aria-invalid={!!error}
+                      aria-describedby={error ? 'login-form-error' : undefined}
                       className="block w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                       placeholder="you@university.edu"
                     />
@@ -129,6 +136,8 @@ export default function LoginPage() {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      aria-invalid={!!error}
+                      aria-describedby={error ? 'login-form-error' : undefined}
                       className="block w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-12 text-sm font-medium text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                       placeholder="••••••••"
                     />
