@@ -50,6 +50,7 @@ import lombok.RequiredArgsConstructor;
 @SuppressWarnings("null")
 public class AuthController {
 
+    private static final String DUMMY_BCRYPT_HASH = "$2a$10$7EqJtq98hPqEX7fNZaFWoOeR6Y7BoM4n5v1T7bGTFeoJq6Digw1u6";
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectProvider<JwtService> jwtServiceProvider;
@@ -170,6 +171,7 @@ public class AuthController {
                 .findFirst();
 
         if (authenticatedUser.isEmpty()) {
+            passwordEncoder.matches(request.password(), DUMMY_BCRYPT_HASH);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid email or password"));
         }
 
