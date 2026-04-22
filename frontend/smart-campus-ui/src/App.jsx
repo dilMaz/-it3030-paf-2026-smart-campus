@@ -13,6 +13,7 @@ import NotFoundPage from './pages/NotFoundPage'
 import ResourceListPage from './pages/ResourceListPage'
 import BookingsPage from './pages/BookingsPage'
 import ProfilePage from './pages/ProfilePage'
+import AdminDashboard from './pages/AdminDashboard'
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
               <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
             </Route>
           </Route>
         </Route>
