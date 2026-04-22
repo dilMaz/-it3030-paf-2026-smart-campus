@@ -8,12 +8,12 @@ import NotificationsPage from './pages/NotificationsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
-import OperationsPlaceholderPage from './pages/OperationsPlaceholderPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ResourceListPage from './pages/ResourceListPage'
 import BookingsPage from './pages/BookingsPage'
 import ProfilePage from './pages/ProfilePage'
 import AdminDashboard from './pages/AdminDashboard'
+import TicketsPage from './pages/TicketsPage'
 
 function App() {
   return (
@@ -35,7 +35,7 @@ function App() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'TECHNICIAN', 'USER']} />}>
-              <Route path="/tickets" element={<OperationsPlaceholderPage title="Tickets" description="Review maintenance tickets, status, and incident priorities." />} />
+              <Route path="/tickets" element={<TicketsPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'USER']} />}>
@@ -44,6 +44,7 @@ function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/tickets" element={<TicketsPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
             </Route>
           </Route>
