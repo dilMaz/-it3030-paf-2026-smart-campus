@@ -8,17 +8,19 @@ import {
   Settings,
   Ticket,
   UserCircle,
+  Shield,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 const menuByRole = {
   USER: ['Dashboard', 'Facilities', 'Bookings', 'Tickets', 'Notifications', 'Profile'],
-  ADMIN: ['Dashboard', 'Facilities', 'Bookings', 'Tickets', 'Notifications', 'Profile'],
+  ADMIN: ['Dashboard', 'Admin', 'Facilities', 'Bookings', 'Tickets', 'Notifications', 'Profile'],
   TECHNICIAN: ['Dashboard', 'Tickets', 'Notifications'],
 }
 
 const items = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
+  { label: 'Admin', to: '/admin/dashboard', icon: Shield },
   { label: 'Facilities', to: '/facilities', icon: Building2 },
   { label: 'Bookings', to: '/bookings', icon: CalendarDays },
   { label: 'Tickets', to: '/tickets', icon: Ticket },
