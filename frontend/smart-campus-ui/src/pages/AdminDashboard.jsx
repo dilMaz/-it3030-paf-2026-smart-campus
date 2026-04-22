@@ -67,16 +67,16 @@ function describeSlice(cx, cy, radius, startAngle, endAngle) {
 }
 
 function ResourceTypePie({ data }) {
-  const cx = 168
-  const cy = 156
-  const radius = 108
+  const cx = 124
+  const cy = 116
+  const radius = 78
   const total = data.reduce((sum, item) => sum + item.count, 0)
 
   if (total === 0) {
     return (
-      <svg width="380" height="320" viewBox="0 0 380 320" role="img" aria-label="No resource type data">
+      <svg width="270" height="230" viewBox="0 0 270 230" role="img" aria-label="No resource type data">
         <circle cx={cx} cy={cy} r={radius} fill="#e2e8f0" />
-        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fill="#64748b" fontSize="14" fontWeight="600">
+        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fill="#64748b" fontSize="12" fontWeight="600">
           No Data
         </text>
       </svg>
@@ -102,10 +102,10 @@ function ResourceTypePie({ data }) {
   ).values
 
   return (
-    <svg width="380" height="320" viewBox="0 0 380 320" role="img" aria-label="Resource type distribution">
+    <svg width="270" height="230" viewBox="0 0 270 230" role="img" aria-label="Resource type distribution">
       {slices.map((item) => {
         const lineStart = polarToCartesian(cx, cy, radius, item.labelAngle)
-        const lineEnd = polarToCartesian(cx, cy, radius + 22, item.labelAngle)
+        const lineEnd = polarToCartesian(cx, cy, radius + 14, item.labelAngle)
 
         return (
           <g key={item.type}>
@@ -116,12 +116,12 @@ function ResourceTypePie({ data }) {
               <line x1={lineStart.x} y1={lineStart.y} x2={lineEnd.x} y2={lineEnd.y} stroke={item.color} strokeWidth="1.5" />
             ) : null}
             <text
-              x={lineEnd.x + (lineEnd.x >= cx ? 8 : -8)}
+              x={lineEnd.x + (lineEnd.x >= cx ? 6 : -6)}
               y={lineEnd.y}
               textAnchor={lineEnd.x >= cx ? 'start' : 'end'}
               dominantBaseline="middle"
               fill={item.color}
-              fontSize="12"
+              fontSize="10"
               fontWeight="700"
             >
               {item.count}
@@ -215,21 +215,26 @@ export default function AdminDashboard() {
             </article>
           </div>
 
-          <article className="rounded-[26px] border border-slate-200/90 bg-slate-50/95 p-5 shadow-[0_20px_40px_rgba(15,23,42,0.07)] lg:p-7">
-            <h2 className="text-2xl font-bold text-slate-900 lg:text-3xl">Resource Types</h2>
-            <div className="mt-4 flex flex-col items-center justify-between gap-8 md:mt-6 md:flex-row md:items-center">
-              <div className="flex w-full justify-center lg:w-auto lg:pl-2">
+          <article className="rounded-[24px] border border-slate-200/90 bg-slate-50/95 p-4 shadow-[0_20px_40px_rgba(15,23,42,0.07)] lg:p-5">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-xl font-bold text-slate-900 lg:text-2xl">Resource Types</h2>
+              <p className="text-xs font-medium text-slate-500">Compact overview by resource category</p>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-center">
+              <div className="flex justify-center lg:justify-start">
                 <ResourceTypePie data={summary.resourceTypes} />
               </div>
 
-              <div className="w-full max-w-sm space-y-3 md:pr-4 lg:pr-6">
+              <div className="w-full rounded-2xl border border-slate-200/80 bg-white/80 p-4">
+                <div className="space-y-2.5">
                 {summary.resourceTypes.map((item) => (
-                  <p key={item.type} className="flex items-center gap-2.5 text-base font-semibold tracking-wide text-slate-900">
-                    <span className="h-4 w-4 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span>{item.type}</span>
-                    <span className="ml-auto text-slate-500">{item.count}</span>
-                  </p>
+                    <p key={item.type} className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-sm font-medium tracking-wide text-slate-800">
+                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span>{item.type}</span>
+                      <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{item.count}</span>
+                    </p>
                 ))}
+                </div>
               </div>
             </div>
           </article>
