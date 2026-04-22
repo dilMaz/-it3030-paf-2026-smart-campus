@@ -3,8 +3,10 @@ package com.smartcampus.smart_campus_api.service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import javax.crypto.SecretKey;
 
@@ -21,13 +23,19 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
 
+    private static final String INSECURE_DEFAULT_SECRET = "smart-campus-dev-secret-key";
+    private static final Set<String> NON_ENFORCED_PROFILES = Set.of("local", "test", "dev");
+
     private final SecretKey signingKey;
     private final long jwtExpiration;
 
     public JwtService(
             @Value("${jwt.secret:smart-campus-dev-secret-key}") String secret,
+            @Value("${spring.profiles.active:}") String activeProfiles,
             @Value("${jwt.expiration:86400000}") long jwtExpiration) {
-        this.signingKey = buildSigningKey(secret);
+        String normalizedSecret = normalizeSecret(secret);
+        validateSecret(normalizedSecret, activeProfiles);
+        this.signingKey = buildSigningKey(normalizedSecret);
         this.jwtExpiration = jwtExpiration;
     }
 
@@ -65,8 +73,33 @@ public class JwtService {
                 .getPayload();
     }
 
+    private String normalizeSecret(String rawSecret) {
+        if (rawSecret == null) {
+            return INSECURE_DEFAULT_SECRET;
+        }
+
+        String normalized = rawSecret.trim();
+        if (normalized.isBlank() || normalized.startsWith("${")) {
+            return INSECURE_DEFAULT_SECRET;
+        }
+
+        return normalized;
+    }
+
+    private void validateSecret(String secret, String activeProfiles) {
+        boolean hasActiveProfiles = activeProfiles != null && !activeProfiles.isBlank();
+        boolean hasNonEnforcedProfile = hasActiveProfiles && Arrays.stream(activeProfiles.split(","))
+                .map(String::trim)
+                .map(String::toLowerCase)
+                .anyMatch(NON_ENFORCED_PROFILES::contains);
+
+        if (hasActiveProfiles && !hasNonEnforcedProfile && INSECURE_DEFAULT_SECRET.equals(secret)) {
+            throw new IllegalStateException("jwt.secret must be configured for non-local profiles");
+        }
+    }
+
     private SecretKey buildSigningKey(String rawSecret) {
-        String secret = rawSecret == null ? "smart-campus-dev-secret-key" : rawSecret.trim();
+        String secret = rawSecret == null ? INSECURE_DEFAULT_SECRET : rawSecret.trim();
 
         // Support both plain text secrets and base64 secrets while ensuring a stable 256-bit key.
         try {
