@@ -37,6 +37,7 @@ import com.smartcampus.smart_campus_api.dto.RegisterRequest;
 import com.smartcampus.smart_campus_api.model.User;
 import com.smartcampus.smart_campus_api.repository.UserRepository;
 import com.smartcampus.smart_campus_api.service.JwtService;
+import com.smartcampus.smart_campus_api.service.UserAuthorizationService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -54,6 +55,7 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectProvider<JwtService> jwtServiceProvider;
+    private final UserAuthorizationService userAuthorizationService;
     @Value("${app.admin.email:}")
     private String adminEmail;
     private static final Set<String> ALLOWED_ROLES = Set.of("USER", "ADMIN", "TECHNICIAN", "MANAGER");
@@ -198,12 +200,8 @@ public class AuthController {
 
     @GetMapping("/users")
     public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal Object principal) {
-        Optional<User> currentUser = resolveCurrentUser(principal);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
-        }
-
-        if (!isAdmin(currentUser.get())) {
+        User currentUser = userAuthorizationService.requireAuthenticatedUser(principal);
+        if (!isAdmin(currentUser)) {
             return ResponseEntity.status(403).body(Map.of("error", "Only admins can view all users"));
         }
 
@@ -216,12 +214,8 @@ public class AuthController {
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal Object principal) {
 
-        Optional<User> currentUser = resolveCurrentUser(principal);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
-        }
-
-        if (!isAdmin(currentUser.get())) {
+        User currentUser = userAuthorizationService.requireAuthenticatedUser(principal);
+        if (!isAdmin(currentUser)) {
             return ResponseEntity.status(403).body(Map.of("error", "Only admins can update roles"));
         }
 
@@ -249,19 +243,6 @@ public class AuthController {
             Authentication authentication) {
         new SecurityContextLogoutHandler().logout(request, response, authentication);
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
-    }
-
-    private Optional<User> resolveCurrentUser(Object principal) {
-        if (principal == null) {
-            return Optional.empty();
-        }
-
-        String email = normalizeEmail(extractEmail(principal));
-        if (email == null || email.isBlank()) {
-            return Optional.empty();
-        }
-
-        return findFirstUserByEmail(email);
     }
 
     private Optional<User> findFirstUserByEmail(String email) {
