@@ -128,9 +128,10 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
+        String cleanedName = request.name() == null ? null : request.name().trim();
         String normalizedEmail = normalizeEmail(request.email());
 
-        if (request.name() == null || request.name().isBlank()
+        if (cleanedName == null || cleanedName.isBlank()
                 || normalizedEmail == null || normalizedEmail.isBlank()
                 || request.password() == null || request.password().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Name, email, and password are required"));
@@ -151,7 +152,7 @@ public class AuthController {
         }
 
         User user = new User();
-        user.setName(request.name().trim());
+        user.setName(cleanedName);
         user.setEmail(normalizedEmail);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRoles(resolveInitialRoles(normalizedEmail));
