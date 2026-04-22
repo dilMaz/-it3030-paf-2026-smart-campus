@@ -73,6 +73,17 @@ public class NotificationController {
         return ResponseEntity.ok(created);
     }
 
+    @PatchMapping("/read-all")
+    public ResponseEntity<?> markAllAsRead(@AuthenticationPrincipal Object principal) {
+        Optional<User> currentUser = getCurrentUser(principal);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+        }
+
+        long updatedCount = notificationService.markAllAsRead(currentUser.get().getId());
+        return ResponseEntity.ok(new MarkAllReadResponse(updatedCount));
+    }
+
     @PatchMapping("/{id}/read")
     public ResponseEntity<?> markAsRead(
             @PathVariable String id,
@@ -88,17 +99,6 @@ public class NotificationController {
         }
 
         return ResponseEntity.ok(notificationService.markAsRead(id));
-    }
-
-    @PatchMapping("/read-all")
-    public ResponseEntity<?> markAllAsRead(@AuthenticationPrincipal Object principal) {
-        Optional<User> currentUser = getCurrentUser(principal);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
-        }
-
-        long updatedCount = notificationService.markAllAsRead(currentUser.get().getId());
-        return ResponseEntity.ok(new MarkAllReadResponse(updatedCount));
     }
 
     @DeleteMapping("/{id}")
