@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { authService } from '../services/authService'
+import { getAuthErrorMessage } from '../utils/authError'
 
 const POST_LOGIN_STORAGE_KEY = 'smartCampusPostLoginPath'
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -58,7 +59,7 @@ export default function LoginPage() {
       await login({ email: trimmedEmail, password })
       navigate(from, { replace: true })
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to login')
+      setError(getAuthErrorMessage(err, 'Failed to login'))
     } finally {
       setLoading(false)
     }

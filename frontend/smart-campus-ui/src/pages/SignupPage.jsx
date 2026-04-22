@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { authService } from '../services/authService'
+import { getAuthErrorMessage } from '../utils/authError'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -68,7 +69,7 @@ export default function SignupPage() {
       await signup({ name: trimmedName, email: trimmedEmail, password, confirmPassword })
       navigate('/login')
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to create account')
+      setError(getAuthErrorMessage(err, 'Failed to create account'))
     } finally {
       setLoading(false)
     }
