@@ -91,6 +91,7 @@ public class AuthController {
         User user;
         if (existingUser.isPresent()) {
             user = existingUser.get();
+            user.setEmail(email);
 
             if ((user.getProfileImageUrl() == null || user.getProfileImageUrl().isBlank())
                     && picture != null && !picture.isBlank()) {
@@ -173,6 +174,7 @@ public class AuthController {
         }
 
         User loggedInUser = authenticatedUser.get();
+        loggedInUser.setEmail(normalizedEmail);
         if (loggedInUser.getCreatedAt() == null) {
             loggedInUser.setCreatedAt(Instant.now());
         }
