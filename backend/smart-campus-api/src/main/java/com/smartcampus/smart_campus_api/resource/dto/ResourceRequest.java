@@ -1,6 +1,6 @@
 package com.smartcampus.smart_campus_api.resource.dto;
 
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 
 import com.smartcampus.smart_campus_api.resource.enums.ResourceStatus;
 import com.smartcampus.smart_campus_api.resource.enums.ResourceType;
@@ -33,10 +33,10 @@ public class ResourceRequest {
     private String location;
 
     @NotNull(message = "availableFrom is required")
-    private LocalTime availableFrom;
+    private LocalDateTime availableFrom;
 
     @NotNull(message = "availableTo is required")
-    private LocalTime availableTo;
+    private LocalDateTime availableTo;
 
     @NotNull(message = "status is required")
     private ResourceStatus status;

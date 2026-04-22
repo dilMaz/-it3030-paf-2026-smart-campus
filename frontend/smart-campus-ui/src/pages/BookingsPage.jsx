@@ -1,5 +1,5 @@
 // Booking request UI component.
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, CheckCircle2, Clock3, Search, XCircle } from 'lucide-react'
 import { bookingService } from '../services/bookingService'
 import { resourceService } from '../services/resourceService'
@@ -560,7 +560,7 @@ useEffect(() => {
                   <p className="mt-1 text-sm text-slate-600">{resource.location}</p>
                   <p className="mt-1 text-xs text-slate-500 inline-flex items-center gap-1">
                     <Clock3 className="h-3.5 w-3.5" />
-                    {resource.availableFrom} - {resource.availableTo}
+                    {formatDateTime(resource.availableFrom)} - {formatDateTime(resource.availableTo)}
                   </p>
                 </div>
               ))}

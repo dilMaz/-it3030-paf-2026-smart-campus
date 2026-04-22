@@ -1,7 +1,6 @@
 package com.smartcampus.smart_campus_api.resource.dto;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 
 import com.smartcampus.smart_campus_api.resource.enums.ResourceStatus;
 import com.smartcampus.smart_campus_api.resource.enums.ResourceType;
@@ -17,8 +16,8 @@ public class ResourceResponse {
     ResourceType type;
     Integer capacity;
     String location;
-    LocalTime availableFrom;
-    LocalTime availableTo;
+    LocalDateTime availableFrom;
+    LocalDateTime availableTo;
     ResourceStatus status;
     String description;
     LocalDateTime createdAt;

@@ -34,11 +34,41 @@ function statusTone(status) {
   return 'info'
 }
 
+function toDateTimeInputValue(value) {
+  if (!value) return ''
+  const raw = String(value)
+  if (raw.includes('T') && raw.length >= 16) {
+    return raw.slice(0, 16)
+  }
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return ''
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 16)
+}
+
+function formatDateTime(value) {
+  if (!value) return '-'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    const fallback = String(value)
+    return fallback.includes('T') ? fallback.replace('T', ' ').slice(0, 16) : fallback
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
 function toEditInitialValues(resource) {
   return {
     ...resource,
-    availableFrom: resource.availableFrom?.slice(0, 5),
-    availableTo: resource.availableTo?.slice(0, 5),
+    availableFrom: toDateTimeInputValue(resource.availableFrom),
+    availableTo: toDateTimeInputValue(resource.availableTo),
   }
 }
 
@@ -280,7 +310,7 @@ export default function ResourceListPage() {
                     <td className="px-4 py-3">{prettyLabel(resource.type)}</td>
                     <td className="px-4 py-3">{resource.capacity}</td>
                     <td className="px-4 py-3">{resource.location}</td>
-                    <td className="px-4 py-3">{resource.availableFrom} - {resource.availableTo}</td>
+                    <td className="px-4 py-3">{formatDateTime(resource.availableFrom)} - {formatDateTime(resource.availableTo)}</td>
                     <td className="px-4 py-3"><StatusBadge tone={statusTone(resource.status)}>{prettyLabel(resource.status)}</StatusBadge></td>
                     {isAdmin ? (
                       <td className="px-4 py-3">
@@ -316,7 +346,7 @@ export default function ResourceListPage() {
                     <h3 className="font-display text-lg font-bold text-slate-900">{resource.name}</h3>
                     <p className="mt-1 text-sm text-slate-600">{prettyLabel(resource.type)} | Capacity {resource.capacity}</p>
                     <p className="mt-1 text-sm text-slate-600">{resource.location}</p>
-                    <p className="mt-1 text-xs text-slate-500">Available {resource.availableFrom} - {resource.availableTo}</p>
+                    <p className="mt-1 text-xs text-slate-500">Available {formatDateTime(resource.availableFrom)} - {formatDateTime(resource.availableTo)}</p>
                   </div>
                   <StatusBadge tone={statusTone(resource.status)}>{prettyLabel(resource.status)}</StatusBadge>
                 </div>

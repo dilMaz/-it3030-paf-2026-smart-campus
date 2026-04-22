@@ -4,14 +4,30 @@ import { buildingFloors, buildingOptions } from './buildingFloors'
 const types = ['LECTURE_HALL', 'LAB', 'MEETING_ROOM', 'EQUIPMENT']
 const statuses = ['ACTIVE', 'OUT_OF_SERVICE']
 
+function toDateTimeInputValue(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 16)
+}
+
+function normalizeDateTimeValue(value) {
+  if (!value) return ''
+  const raw = String(value)
+  if (raw.includes('T') && raw.length >= 16) {
+    return raw.slice(0, 16)
+  }
+  return toDateTimeInputValue(raw)
+}
+
 const defaultState = {
   name: '',
   type: 'LECTURE_HALL',
   capacity: '',
   building: '',
   floor: '',
-  availableFrom: '08:00',
-  availableTo: '17:00',
+  availableFrom: toDateTimeInputValue(),
+  availableTo: toDateTimeInputValue(new Date(Date.now() + 60 * 60 * 1000)),
   status: 'ACTIVE',
   description: '',
 }
@@ -60,6 +76,8 @@ function mapInitialValues(initialValues = {}) {
     building: parsedLocation.building,
     floor: parsedLocation.floor,
     capacity: initialValues.capacity ? String(initialValues.capacity) : '',
+    availableFrom: normalizeDateTimeValue(initialValues.availableFrom) || defaultState.availableFrom,
+    availableTo: normalizeDateTimeValue(initialValues.availableTo) || defaultState.availableTo,
   }
 }
 
@@ -74,6 +92,7 @@ export default function ResourceForm({
   const [values, setValues] = useState(() => mapInitialValues(initialValues))
   const [errors, setErrors] = useState({})
   const floorOptions = values.building ? buildingFloors[values.building] || [] : []
+  const nowInputValue = useMemo(() => toDateTimeInputValue(), [])
 
   const isValid = useMemo(() => Object.keys(errors).length === 0, [errors])
 
@@ -107,7 +126,20 @@ export default function ResourceForm({
     if (!values.capacity || Number(values.capacity) < 1) nextErrors.capacity = 'Capacity must be at least 1'
     if (!values.availableFrom) nextErrors.availableFrom = 'Available from is required'
     if (!values.availableTo) nextErrors.availableTo = 'Available to is required'
-    if (values.availableFrom && values.availableTo && values.availableFrom >= values.availableTo) {
+    const fromDate = values.availableFrom ? new Date(values.availableFrom) : null
+    const toDate = values.availableTo ? new Date(values.availableTo) : null
+    const nowDate = new Date()
+    nowDate.setSeconds(0, 0)
+
+    if (fromDate && Number.isNaN(fromDate.getTime())) nextErrors.availableFrom = 'Enter a valid date and time'
+    if (toDate && Number.isNaN(toDate.getTime())) nextErrors.availableTo = 'Enter a valid date and time'
+    if (fromDate && !Number.isNaN(fromDate.getTime()) && fromDate < nowDate) {
+      nextErrors.availableFrom = 'Available from cannot be in the past'
+    }
+    if (toDate && !Number.isNaN(toDate.getTime()) && toDate < nowDate) {
+      nextErrors.availableTo = 'Available to cannot be in the past'
+    }
+    if (fromDate && toDate && fromDate >= toDate) {
       nextErrors.availableTo = 'Available to must be after available from'
     }
     setErrors(nextErrors)
@@ -207,9 +239,10 @@ export default function ResourceForm({
         <label className="block">
           <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Available From</span>
           <input
-            type="time"
+            type="datetime-local"
             value={values.availableFrom}
             onChange={(event) => setField('availableFrom', event.target.value)}
+            min={nowInputValue}
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
           />
           {errors.availableFrom ? <p className="mt-1 text-xs text-rose-600">{errors.availableFrom}</p> : null}
@@ -218,9 +251,10 @@ export default function ResourceForm({
         <label className="block">
           <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Available To</span>
           <input
-            type="time"
+            type="datetime-local"
             value={values.availableTo}
             onChange={(event) => setField('availableTo', event.target.value)}
+            min={values.availableFrom || nowInputValue}
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
           />
           {errors.availableTo ? <p className="mt-1 text-xs text-rose-600">{errors.availableTo}</p> : null}
