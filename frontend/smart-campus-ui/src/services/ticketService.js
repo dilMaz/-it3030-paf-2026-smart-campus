@@ -6,6 +6,11 @@ export const ticketService = {
     return response.data
   },
 
+  async assignTechnician(ticketId, payload) {
+    const response = await api.patch(`/api/tickets/${ticketId}/assign`, payload)
+    return response.data
+  },
+
   async createTicket(payload) {
     const response = await api.post('/api/tickets', payload)
     return response.data
@@ -13,6 +18,21 @@ export const ticketService = {
 
   async updateTicketStatus(ticketId, payload) {
     const response = await api.patch(`/api/tickets/${ticketId}/status`, payload)
+    return response.data
+  },
+
+  async addComment(ticketId, payload) {
+    const response = await api.post(`/api/tickets/${ticketId}/comments`, payload)
+    return response.data
+  },
+
+  async updateComment(ticketId, commentId, payload) {
+    const response = await api.patch(`/api/tickets/${ticketId}/comments/${commentId}`, payload)
+    return response.data
+  },
+
+  async deleteComment(ticketId, commentId) {
+    const response = await api.delete(`/api/tickets/${ticketId}/comments/${commentId}`)
     return response.data
   },
 }

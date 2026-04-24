@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ClipboardList, Search, Upload, Wrench } from 'lucide-react'
+import { ClipboardList, MessageSquare, Search, Upload, Wrench } from 'lucide-react'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import EmptyState from '../components/ui/EmptyState'
 import StatusBadge from '../components/ui/StatusBadge'
 import { useAuth } from '../hooks/useAuth'
 import { ticketService } from '../services/ticketService'
+import api from '../services/api'
 
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED']
@@ -61,12 +62,13 @@ function getStatusActions(status) {
 }
 
 export default function TicketsPage() {
-  const { roles } = useAuth()
+  const { roles, user } = useAuth()
   const isAdmin = roles.includes('ADMIN')
   const isTechnician = roles.includes('TECHNICIAN')
   const isManager = roles.includes('MANAGER')
   const canManage = isAdmin || isTechnician || isManager
   const canCreate = roles.includes('USER')
+  const canAssignTechnician = isAdmin
 
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -74,6 +76,9 @@ export default function TicketsPage() {
   const [updatingTicketId, setUpdatingTicketId] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [technicians, setTechnicians] = useState([])
+  const [openConversationId, setOpenConversationId] = useState('')
+  const [commentDraftByTicket, setCommentDraftByTicket] = useState({})
   const [filters, setFilters] = useState({
     query: '',
     status: '',
@@ -110,6 +115,20 @@ export default function TicketsPage() {
   useEffect(() => {
     loadTickets()
   }, [])
+
+  useEffect(() => {
+    if (!canAssignTechnician) return
+
+    api.get('/api/auth/users')
+      .then((response) => {
+        const users = Array.isArray(response.data) ? response.data : []
+        const techs = users.filter((value) => Array.isArray(value.roles) && value.roles.some((role) => String(role).toUpperCase().includes('TECHNICIAN')))
+        setTechnicians(techs)
+      })
+      .catch(() => {
+        setTechnicians([])
+      })
+  }, [canAssignTechnician])
 
   const filteredTickets = useMemo(() => {
     const query = filters.query.trim().toLowerCase()
@@ -229,6 +248,70 @@ export default function TicketsPage() {
         requestError?.response?.data?.message
         || requestError?.response?.data?.error
         || 'Failed to update ticket status.',
+      )
+    } finally {
+      setUpdatingTicketId('')
+    }
+  }
+
+  const assignTechnician = async (ticket, technicianId) => {
+    setError('')
+    setSuccess('')
+    setUpdatingTicketId(ticket.id)
+    try {
+      await ticketService.assignTechnician(ticket.id, { technicianId })
+      setSuccess('Technician assigned.')
+      await loadTickets()
+    } catch (requestError) {
+      setError(
+        requestError?.response?.data?.message
+        || requestError?.response?.data?.error
+        || 'Failed to assign technician.',
+      )
+    } finally {
+      setUpdatingTicketId('')
+    }
+  }
+
+  const submitComment = async (ticket) => {
+    const draft = String(commentDraftByTicket[ticket.id] || '').trim()
+    if (!draft) {
+      setError('Message cannot be empty.')
+      return
+    }
+
+    setError('')
+    setSuccess('')
+    setUpdatingTicketId(ticket.id)
+    try {
+      await ticketService.addComment(ticket.id, { content: draft })
+      setCommentDraftByTicket((current) => ({ ...current, [ticket.id]: '' }))
+      setSuccess('Message sent.')
+      await loadTickets()
+    } catch (requestError) {
+      setError(
+        requestError?.response?.data?.message
+        || requestError?.response?.data?.error
+        || 'Failed to send message.',
+      )
+    } finally {
+      setUpdatingTicketId('')
+    }
+  }
+
+  const deleteComment = async (ticketId, commentId) => {
+    setError('')
+    setSuccess('')
+    setUpdatingTicketId(ticketId)
+    try {
+      await ticketService.deleteComment(ticketId, commentId)
+      setSuccess('Message deleted.')
+      await loadTickets()
+    } catch (requestError) {
+      setError(
+        requestError?.response?.data?.message
+        || requestError?.response?.data?.error
+        || 'Failed to delete message.',
       )
     } finally {
       setUpdatingTicketId('')
@@ -441,6 +524,33 @@ export default function TicketsPage() {
                 <p className="mt-3 text-sm text-slate-700">{ticket.description}</p>
                 <p className="mt-2 text-xs text-slate-500">Preferred contact: {ticket.contactInformation}</p>
 
+                {canManage ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Assigned technician ID: {ticket.assignedTechnicianId || 'Unassigned'}
+                  </p>
+                ) : null}
+
+                {canAssignTechnician ? (
+                  <div className="mt-3">
+                    <label className="block">
+                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Assign technician</span>
+                      <select
+                        value={ticket.assignedTechnicianId || ''}
+                        disabled={updatingTicketId === ticket.id}
+                        onChange={(event) => assignTechnician(ticket, event.target.value)}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:opacity-60"
+                      >
+                        <option value="">Unassigned</option>
+                        {technicians.map((tech) => (
+                          <option key={tech.id} value={tech.id}>
+                            {tech.name || tech.email || tech.id}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
+
                 {ticket.attachmentUrls?.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {ticket.attachmentUrls.map((attachment) => (
@@ -474,6 +584,72 @@ export default function TicketsPage() {
                     ))}
                   </div>
                 ) : null}
+
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setOpenConversationId((current) => (current === ticket.id ? '' : ticket.id))}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    {openConversationId === ticket.id ? 'Hide conversation' : 'Open conversation'}
+                  </button>
+
+                  {openConversationId === ticket.id ? (
+                    <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Conversation</p>
+
+                      <div className="mt-3 space-y-3">
+                        {(ticket.comments || []).length === 0 ? (
+                          <p className="text-sm text-slate-500">No messages yet. Send the first update.</p>
+                        ) : (
+                          (ticket.comments || []).map((comment) => {
+                            const isOwner = user?.id && comment.authorId === user.id
+                            const canDelete = isOwner || isAdmin
+                            return (
+                              <div key={comment.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-xs font-semibold text-slate-700">{comment.authorName || 'User'}</p>
+                                    <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{comment.content}</p>
+                                  </div>
+                                  {canDelete ? (
+                                    <button
+                                      type="button"
+                                      disabled={updatingTicketId === ticket.id}
+                                      onClick={() => deleteComment(ticket.id, comment.id)}
+                                      className="text-xs font-semibold text-rose-700 hover:text-rose-800 disabled:opacity-60"
+                                    >
+                                      Delete
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+
+                      <div className="mt-4">
+                        <textarea
+                          rows={3}
+                          value={commentDraftByTicket[ticket.id] || ''}
+                          onChange={(event) => setCommentDraftByTicket((current) => ({ ...current, [ticket.id]: event.target.value }))}
+                          placeholder="Write a message to the support team..."
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => submitComment(ticket)}
+                          disabled={updatingTicketId === ticket.id}
+                          className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </article>
             ))}
           </div>

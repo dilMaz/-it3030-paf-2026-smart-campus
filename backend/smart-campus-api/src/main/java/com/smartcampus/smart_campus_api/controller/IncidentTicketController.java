@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,8 +15,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smartcampus.smart_campus_api.dto.AssignTechnicianRequest;
 import com.smartcampus.smart_campus_api.dto.CreateIncidentTicketRequest;
+import com.smartcampus.smart_campus_api.dto.CreateTicketCommentRequest;
 import com.smartcampus.smart_campus_api.dto.IncidentTicketResponse;
+import com.smartcampus.smart_campus_api.dto.UpdateTicketCommentRequest;
 import com.smartcampus.smart_campus_api.dto.UpdateTicketStatusRequest;
 import com.smartcampus.smart_campus_api.service.IncidentTicketService;
 
@@ -55,5 +59,38 @@ public class IncidentTicketController {
             @Valid @RequestBody UpdateTicketStatusRequest request,
             @AuthenticationPrincipal Object principal) {
         return ResponseEntity.ok(incidentTicketService.updateTicketStatus(ticketId, request, principal));
+    }
+
+    @PatchMapping("/{ticketId}/assign")
+    public ResponseEntity<IncidentTicketResponse> assignTechnician(
+            @PathVariable String ticketId,
+            @Valid @RequestBody AssignTechnicianRequest request,
+            @AuthenticationPrincipal Object principal) {
+        return ResponseEntity.ok(incidentTicketService.assignTechnician(ticketId, request, principal));
+    }
+
+    @PostMapping("/{ticketId}/comments")
+    public ResponseEntity<IncidentTicketResponse> addComment(
+            @PathVariable String ticketId,
+            @Valid @RequestBody CreateTicketCommentRequest request,
+            @AuthenticationPrincipal Object principal) {
+        return ResponseEntity.ok(incidentTicketService.addComment(ticketId, request, principal));
+    }
+
+    @PatchMapping("/{ticketId}/comments/{commentId}")
+    public ResponseEntity<IncidentTicketResponse> updateComment(
+            @PathVariable String ticketId,
+            @PathVariable String commentId,
+            @Valid @RequestBody UpdateTicketCommentRequest request,
+            @AuthenticationPrincipal Object principal) {
+        return ResponseEntity.ok(incidentTicketService.updateComment(ticketId, commentId, request, principal));
+    }
+
+    @DeleteMapping("/{ticketId}/comments/{commentId}")
+    public ResponseEntity<IncidentTicketResponse> deleteComment(
+            @PathVariable String ticketId,
+            @PathVariable String commentId,
+            @AuthenticationPrincipal Object principal) {
+        return ResponseEntity.ok(incidentTicketService.deleteComment(ticketId, commentId, principal));
     }
 }

@@ -2,13 +2,19 @@ package com.smartcampus.smart_campus_api.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.smartcampus.smart_campus_api.dto.AssignTechnicianRequest;
 import com.smartcampus.smart_campus_api.dto.CreateIncidentTicketRequest;
+import com.smartcampus.smart_campus_api.dto.CreateTicketCommentRequest;
 import com.smartcampus.smart_campus_api.dto.IncidentTicketResponse;
+import com.smartcampus.smart_campus_api.dto.UpdateTicketCommentRequest;
 import com.smartcampus.smart_campus_api.dto.UpdateTicketStatusRequest;
+import com.smartcampus.smart_campus_api.exception.ForbiddenOperationException;
 import com.smartcampus.smart_campus_api.exception.ResourceNotFoundException;
+import com.smartcampus.smart_campus_api.model.Comment;
 import com.smartcampus.smart_campus_api.model.IncidentTicket;
 import com.smartcampus.smart_campus_api.model.TicketStatus;
 import com.smartcampus.smart_campus_api.model.User;
@@ -116,9 +122,102 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
         return toResponse(saved, findReporter(saved.getReporterId()));
     }
 
+    @Override
+    public IncidentTicketResponse assignTechnician(String ticketId, AssignTechnicianRequest request, Object principal) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        userAuthorizationService.requireAnyRole(user, "ADMIN");
+
+        IncidentTicket ticket = findTicketOrThrow(ticketId);
+        ticket.setAssignedTechnicianId(request.technicianId().trim());
+        ticket.setUpdatedAt(LocalDateTime.now());
+
+        IncidentTicket saved = incidentTicketRepository.save(ticket);
+        return toResponse(saved, findReporter(saved.getReporterId()));
+    }
+
+    @Override
+    public IncidentTicketResponse addComment(String ticketId, CreateTicketCommentRequest request, Object principal) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        IncidentTicket ticket = findTicketOrThrow(ticketId);
+        requireTicketAccess(user, ticket);
+
+        Comment comment = Comment.builder()
+                .id(UUID.randomUUID().toString())
+                .ticketId(ticket.getId())
+                .authorId(user.getId())
+                .authorName(user.getName())
+                .content(request.content().trim())
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        ticket.getComments().add(comment);
+        ticket.setUpdatedAt(LocalDateTime.now());
+        IncidentTicket saved = incidentTicketRepository.save(ticket);
+        return toResponse(saved, findReporter(saved.getReporterId()));
+    }
+
+    @Override
+    public IncidentTicketResponse updateComment(String ticketId, String commentId, UpdateTicketCommentRequest request, Object principal) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        IncidentTicket ticket = findTicketOrThrow(ticketId);
+        requireTicketAccess(user, ticket);
+
+        Comment comment = ticket.getComments()
+                .stream()
+                .filter(item -> commentId != null && commentId.equals(item.getId()))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
+
+        if (!user.getId().equals(comment.getAuthorId()) && !hasAnyRole(user, "ADMIN")) {
+            throw new ForbiddenOperationException("Only the comment owner can edit this comment");
+        }
+
+        comment.setContent(request.content().trim());
+        comment.setUpdatedAt(LocalDateTime.now());
+        ticket.setUpdatedAt(LocalDateTime.now());
+
+        IncidentTicket saved = incidentTicketRepository.save(ticket);
+        return toResponse(saved, findReporter(saved.getReporterId()));
+    }
+
+    @Override
+    public IncidentTicketResponse deleteComment(String ticketId, String commentId, Object principal) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        IncidentTicket ticket = findTicketOrThrow(ticketId);
+        requireTicketAccess(user, ticket);
+
+        Comment comment = ticket.getComments()
+                .stream()
+                .filter(item -> commentId != null && commentId.equals(item.getId()))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
+
+        if (!user.getId().equals(comment.getAuthorId()) && !hasAnyRole(user, "ADMIN")) {
+            throw new ForbiddenOperationException("Only the comment owner can delete this comment");
+        }
+
+        ticket.getComments().removeIf(item -> commentId.equals(item.getId()));
+        ticket.setUpdatedAt(LocalDateTime.now());
+
+        IncidentTicket saved = incidentTicketRepository.save(ticket);
+        return toResponse(saved, findReporter(saved.getReporterId()));
+    }
+
     private IncidentTicket findTicketOrThrow(String ticketId) {
         return incidentTicketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found for id: " + ticketId));
+    }
+
+    private void requireTicketAccess(User user, IncidentTicket ticket) {
+        if (hasAnyRole(user, "ADMIN", "TECHNICIAN", "MANAGER")) {
+            return;
+        }
+
+        userAuthorizationService.requireAnyRole(user, "USER");
+        if (!user.getId().equals(ticket.getReporterId())) {
+            throw new ForbiddenOperationException("Access denied to this ticket");
+        }
     }
 
     private User findReporter(String reporterId) {
