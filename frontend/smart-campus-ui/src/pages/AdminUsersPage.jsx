@@ -8,6 +8,27 @@ import { AUTH_USER_STORAGE_KEY } from '../constants/authStorage'
 import api from '../services/api'
 
 const roleOptions = ['USER', 'ADMIN', 'TECHNICIAN', 'MANAGER']
+const TECHNICIAN_TYPE_STORAGE_KEY = 'smartCampusTechnicianTypes'
+
+function loadTechnicianTypes() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(TECHNICIAN_TYPE_STORAGE_KEY) || '[]')
+    return Array.isArray(stored) ? stored.filter((value) => typeof value === 'string' && value.trim()) : []
+  } catch {
+    return []
+  }
+}
+
+function saveTechnicianType(value) {
+  const next = String(value || '').trim()
+  if (!next) return
+
+  const existing = loadTechnicianTypes()
+  const normalized = next.toLowerCase()
+  const withoutDupes = existing.filter((item) => item.toLowerCase() !== normalized)
+  const merged = [next, ...withoutDupes].slice(0, 15)
+  localStorage.setItem(TECHNICIAN_TYPE_STORAGE_KEY, JSON.stringify(merged))
+}
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([])
@@ -15,6 +36,8 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [savingUserId, setSavingUserId] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [technicianTypes, setTechnicianTypes] = useState(() => loadTechnicianTypes())
+  const [technicianModal, setTechnicianModal] = useState({ open: false, userId: '', role: 'TECHNICIAN', value: '' })
 
   const currentUser = useMemo(() => {
     try {
@@ -64,6 +87,27 @@ export default function AdminUsersPage() {
     }
   }, [])
 
+  const requestRoleUpdate = (userId, payload) => {
+    setSavingUserId(userId)
+    setError('')
+
+    api.patch(`/api/auth/users/${userId}/role`, payload)
+      .then((response) => {
+        setUsers((current) => current.map((u) => (
+          u.id === userId ? response.data : u
+        )))
+        toast.success(`Role updated to ${payload.role}`)
+      })
+      .catch((requestError) => {
+        const errorMsg = requestError?.response?.data?.error || requestError?.response?.data?.message || 'Unable to update user role.'
+        setError(errorMsg)
+        toast.error(errorMsg)
+      })
+      .finally(() => {
+        setSavingUserId('')
+      })
+  }
+
   const updateRole = (userId, newRole) => {
     const user = users.find((u) => u.id === userId)
     if (!user) return
@@ -71,27 +115,31 @@ export default function AdminUsersPage() {
     const currentRole = Array.isArray(user.roles) && user.roles.length > 0 ? user.roles[0] : 'USER'
     if (currentRole === newRole) return
 
-    setSavingUserId(userId)
-    setError('')
+    if (newRole === 'TECHNICIAN') {
+      setTechnicianModal({
+        open: true,
+        userId,
+        role: newRole,
+        value: user.technicianType || '',
+      })
+      return
+    }
 
-    api.patch(
-      `/api/auth/users/${userId}/role`,
-      { role: newRole },
-    )
-      .then((response) => {
-        setUsers((current) => current.map((u) => (
-          u.id === userId ? response.data : u
-        )))
-        toast.success(`Role updated to ${newRole}`)
-      })
-      .catch((requestError) => {
-        const errorMsg = requestError?.response?.data?.error || 'Unable to update user role.'
-        setError(errorMsg)
-        toast.error(errorMsg)
-      })
-      .finally(() => {
-        setSavingUserId('')
-      })
+    requestRoleUpdate(userId, { role: newRole })
+  }
+
+  const confirmTechnicianType = () => {
+    const value = technicianModal.value.trim()
+    if (!value) {
+      setError('Technician type is required.')
+      toast.error('Technician type is required.')
+      return
+    }
+
+    saveTechnicianType(value)
+    setTechnicianTypes(loadTechnicianTypes())
+    requestRoleUpdate(technicianModal.userId, { role: 'TECHNICIAN', technicianType: value })
+    setTechnicianModal({ open: false, userId: '', role: 'TECHNICIAN', value: '' })
   }
 
   const filteredUsers = useMemo(() => {
@@ -215,6 +263,11 @@ export default function AdminUsersPage() {
                       <StatusBadge tone={role === 'ADMIN' ? 'info' : role === 'TECHNICIAN' ? 'pending' : role === 'MANAGER' ? 'error' : 'success'}>
                         {role}
                       </StatusBadge>
+                      {role === 'TECHNICIAN' && user.technicianType ? (
+                        <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                          {user.technicianType}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center gap-2 justify-end">
@@ -273,6 +326,53 @@ export default function AdminUsersPage() {
           Showing {filteredUsers.length} users
         </div>
       </div>
+
+      {technicianModal.open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Technician Details</p>
+              <h3 className="mt-1 font-display text-2xl font-bold text-slate-900">Set technician type</h3>
+              <p className="mt-1 text-sm text-slate-600">Type a category (e.g. Electrical, Plumbing, IT Support). Previous entries will appear as suggestions.</p>
+            </div>
+
+            <div className="space-y-4 px-6 py-5">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Technician type</span>
+                <input
+                  value={technicianModal.value}
+                  onChange={(event) => setTechnicianModal((current) => ({ ...current, value: event.target.value }))}
+                  list="technician-type-suggestions"
+                  placeholder="e.g. Network, CCTV, Electrical..."
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+                />
+                <datalist id="technician-type-suggestions">
+                  {technicianTypes.map((item) => (
+                    <option key={item} value={item} />
+                  ))}
+                </datalist>
+              </label>
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setTechnicianModal({ open: false, userId: '', role: 'TECHNICIAN', value: '' })}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmTechnicianType}
+                  className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+                >
+                  Save & Assign Technician Role
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

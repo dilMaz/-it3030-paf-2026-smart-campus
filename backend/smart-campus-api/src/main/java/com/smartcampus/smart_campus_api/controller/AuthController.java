@@ -226,6 +226,19 @@ public class AuthController {
             throw new IllegalArgumentException("Invalid role");
         }
 
+        String technicianType = body.get("technicianType");
+        if ("TECHNICIAN".equals(newRole)) {
+            technicianType = technicianType == null ? null : technicianType.trim();
+            if (technicianType == null || technicianType.isBlank()) {
+                throw new IllegalArgumentException("technicianType is required when role is TECHNICIAN");
+            }
+            if (technicianType.length() > 80) {
+                throw new IllegalArgumentException("technicianType must not exceed 80 characters");
+            }
+        } else {
+            technicianType = null;
+        }
+
         Optional<User> optionalUser = userRepository.findById(id);
         if (optionalUser.isEmpty()) {
             throw new ResourceNotFoundException("User not found");
@@ -233,6 +246,7 @@ public class AuthController {
 
         User user = optionalUser.get();
         user.setRoles(List.of(newRole));
+        user.setTechnicianType(technicianType);
         userRepository.save(user);
 
         return ResponseEntity.ok(user);

@@ -23,6 +23,7 @@ public class User {
     private String bio;
     private String googleId;
     private List<String> roles;
+    private String technicianType;
     private Instant createdAt;
     private Instant updatedAt;
 }
