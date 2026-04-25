@@ -10,7 +10,8 @@ import AdminUsersPage from './pages/AdminUsersPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
-import ResourceListPage from './pages/ResourceListPage'
+import FacilitiesPage from './pages/FacilitiesPage'
+import UserFacilitiesPage from './pages/UserFacilitiesPage'
 import BookingsPage from './pages/BookingsPage'
 import ProfilePage from './pages/ProfilePage'
 import AdminDashboard from './pages/AdminDashboard'
@@ -22,6 +23,16 @@ function DashboardRouter() {
   const isTechnician = roles.includes('TECHNICIAN')
 
   return isTechnician ? <TechnicianDashboard /> : <Dashboard />
+}
+
+function FacilitiesRouter() {
+  const { roles } = useAuth()
+
+  if (roles.includes('ADMIN')) {
+    return <FacilitiesPage />
+  }
+
+  return <UserFacilitiesPage />
 }
 
 function App() {
@@ -48,8 +59,8 @@ function App() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'USER']} />}>
-              <Route path="/facilities" element={<ResourceListPage />} />
-              <Route path="/resources" element={<ResourceListPage />} />
+              <Route path="/facilities" element={<FacilitiesRouter />} />
+              <Route path="/resources" element={<FacilitiesRouter />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
