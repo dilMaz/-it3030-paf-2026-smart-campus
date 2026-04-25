@@ -9,6 +9,7 @@ import api from '../services/api'
 
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED']
+const LOCKED_ASSIGNMENT_STATUSES = new Set(['RESOLVED', 'REJECTED'])
 
 function prettyLabel(value = '') {
   return value
@@ -66,6 +67,7 @@ export default function TicketsPage() {
   const isAdmin = roles.includes('ADMIN')
   const isTechnician = roles.includes('TECHNICIAN')
   const isManager = roles.includes('MANAGER')
+  const isStaff = isAdmin || isManager || isTechnician
   const canManage = isAdmin || isTechnician || isManager
   const canCreate = roles.includes('USER')
   const canAssignTechnician = isAdmin
@@ -77,6 +79,7 @@ export default function TicketsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [technicians, setTechnicians] = useState([])
+  const [editingAssignmentTicketId, setEditingAssignmentTicketId] = useState('')
   const [openConversationId, setOpenConversationId] = useState('')
   const [commentDraftByTicket, setCommentDraftByTicket] = useState({})
   const [filters, setFilters] = useState({
@@ -134,6 +137,12 @@ export default function TicketsPage() {
     const query = filters.query.trim().toLowerCase()
 
     return tickets.filter((ticket) => {
+      if (isTechnician && !isAdmin && !isManager) {
+        if (!user?.id || ticket.assignedTechnicianId !== user.id) {
+          return false
+        }
+      }
+
       if (filters.status && ticket.status !== filters.status) {
         return false
       }
@@ -254,14 +263,34 @@ export default function TicketsPage() {
     }
   }
 
-  const assignTechnician = async (ticket, technicianId) => {
+  const requestAssignTechnician = async (ticket, technicianId, { confirmed } = {}) => {
     setError('')
     setSuccess('')
+
+    if (LOCKED_ASSIGNMENT_STATUSES.has(ticket.status)) {
+      setError(`Technician assignment is disabled when a ticket is ${prettyLabel(ticket.status)}.`)
+      return
+    }
+
+    const previousTechnicianId = ticket.assignedTechnicianId || ''
+    const isChanging = previousTechnicianId && previousTechnicianId !== technicianId
+    const previousTechMessaged = isChanging
+      ? (ticket.comments || []).some((comment) => comment?.authorId === previousTechnicianId)
+      : false
+
+    if (!confirmed && previousTechMessaged) {
+      const ok = window.confirm(
+        'This ticket already has messages from the previously assigned technician. Are you sure you want to change the technician?',
+      )
+      if (!ok) return
+    }
+
     setUpdatingTicketId(ticket.id)
     try {
       await ticketService.assignTechnician(ticket.id, { technicianId })
       setSuccess('Technician assigned.')
       await loadTickets()
+      setEditingAssignmentTicketId('')
     } catch (requestError) {
       setError(
         requestError?.response?.data?.message
@@ -271,6 +300,15 @@ export default function TicketsPage() {
     } finally {
       setUpdatingTicketId('')
     }
+  }
+
+  const toggleAssignmentEditor = (ticket) => {
+    if (LOCKED_ASSIGNMENT_STATUSES.has(ticket.status)) {
+      setError(`Technician assignment is disabled when a ticket is ${prettyLabel(ticket.status)}.`)
+      return
+    }
+
+    setEditingAssignmentTicketId((current) => (current === ticket.id ? '' : ticket.id))
   }
 
   const submitComment = async (ticket) => {
@@ -481,7 +519,9 @@ export default function TicketsPage() {
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-2xl font-bold text-slate-900">{canManage ? 'All Tickets' : 'My Tickets'}</h3>
+          <h3 className="font-display text-2xl font-bold text-slate-900">
+            {isTechnician && !isAdmin && !isManager ? 'Assigned Tickets' : canManage ? 'All Tickets' : 'My Tickets'}
+          </h3>
           <span className="text-sm font-semibold text-slate-500">{filteredTickets.length} results</span>
         </div>
 
@@ -532,22 +572,47 @@ export default function TicketsPage() {
 
                 {canAssignTechnician ? (
                   <div className="mt-3">
-                    <label className="block">
-                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Assign technician</span>
-                      <select
-                        value={ticket.assignedTechnicianId || ''}
-                        disabled={updatingTicketId === ticket.id}
-                        onChange={(event) => assignTechnician(ticket, event.target.value)}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:opacity-60"
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Technician assignment</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                          {ticket.assignedTechnicianId ? 'Assigned' : 'Unassigned'}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={updatingTicketId === ticket.id || LOCKED_ASSIGNMENT_STATUSES.has(ticket.status)}
+                        onClick={() => toggleAssignmentEditor(ticket)}
+                        className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                       >
-                        <option value="">Unassigned</option>
-                        {technicians.map((tech) => (
-                          <option key={tech.id} value={tech.id}>
-                            {tech.name || tech.email || tech.id}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        {editingAssignmentTicketId === ticket.id ? 'Cancel' : ticket.assignedTechnicianId ? 'Edit technician' : 'Assign technician'}
+                      </button>
+                    </div>
+
+                    {editingAssignmentTicketId === ticket.id ? (
+                      <label className="mt-2 block">
+                        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Select technician</span>
+                        <select
+                          defaultValue={ticket.assignedTechnicianId || ''}
+                          disabled={updatingTicketId === ticket.id}
+                          onChange={(event) => requestAssignTechnician(ticket, event.target.value)}
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:opacity-60"
+                        >
+                          <option value="">Unassigned</option>
+                          {technicians.map((tech) => (
+                            <option key={tech.id} value={tech.id}>
+                              {tech.name || tech.email || tech.id}
+                            </option>
+                          ))}
+                        </select>
+                        {LOCKED_ASSIGNMENT_STATUSES.has(ticket.status) ? (
+                          <p className="mt-1 text-xs font-medium text-slate-500">
+                            Assignment is disabled for {prettyLabel(ticket.status)} tickets.
+                          </p>
+                        ) : null}
+                      </label>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -586,14 +651,26 @@ export default function TicketsPage() {
                 ) : null}
 
                 <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setOpenConversationId((current) => (current === ticket.id ? '' : ticket.id))}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    {openConversationId === ticket.id ? 'Hide conversation' : 'Open conversation'}
-                  </button>
+                  {(
+                    !isStaff
+                    || isAdmin
+                    || isManager
+                    || (roles.includes('USER') && ticket.reporterId && ticket.reporterId === user?.id)
+                    || (isTechnician && ticket.assignedTechnicianId && ticket.assignedTechnicianId === user?.id)
+                  ) ? (
+                    <button
+                      type="button"
+                      onClick={() => setOpenConversationId((current) => (current === ticket.id ? '' : ticket.id))}
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      {openConversationId === ticket.id ? 'Hide conversation' : 'Open conversation'}
+                    </button>
+                  ) : (
+                    <p className="text-xs font-medium text-slate-500">
+                      Conversation is available for the reporter and assigned technician.
+                    </p>
+                  )}
 
                   {openConversationId === ticket.id ? (
                     <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
