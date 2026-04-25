@@ -5,7 +5,6 @@ import {
   CalendarDays,
   LayoutDashboard,
   LogOut,
-  Settings,
   Ticket,
   UserCircle,
   Shield,
@@ -48,12 +47,12 @@ export default function Sidebar({ role = 'USER', onLogout, onNavigate, mobile = 
       <div className="absolute bottom-0 -right-10 h-64 w-64 rounded-full bg-purple-600/20 blur-[80px] pointer-events-none" />
 
       <div className="relative mb-10 flex flex-col items-center gap-3 px-2 transition-all duration-300 group-hover/sidebar:items-start group-focus-within:items-start">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
-          <Settings className="h-6 w-6 text-white" />
+        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl shadow-lg shadow-blue-500/20 ring-1 ring-white/10">
+          <img src="/westford-university-logo.svg" alt="Westford University logo" className="h-full w-full object-cover" />
         </div>
         <div className="hidden group-hover/sidebar:block group-focus-within:block text-left">
-          <p className="font-display text-lg font-bold tracking-wide">Campus Hub</p>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Operations Center</p>
+          <p className="font-display text-lg font-bold tracking-wide">Westford University</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Campus Operations</p>
         </div>
       </div>
 
