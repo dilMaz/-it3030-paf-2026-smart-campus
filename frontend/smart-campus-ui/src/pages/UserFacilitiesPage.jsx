@@ -417,7 +417,7 @@ export default function UserFacilitiesPage() {
                       transition={{ delay: index * 0.04 }}
                       className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_20px_40px_rgba(15,23,42,0.08)] transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_24px_46px_rgba(15,23,42,0.12)]"
                     >
-                      <div className="relative h-44 overflow-hidden bg-slate-100">
+                      <div className="relative h-32 overflow-hidden bg-slate-100">
                         {imageUrl ? (
                           <img src={imageUrl} alt={resource.name} className="h-full w-full object-cover" />
                         ) : (

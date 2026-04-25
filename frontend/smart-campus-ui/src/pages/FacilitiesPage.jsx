@@ -41,6 +41,17 @@ const emptyFormState = {
   availabilityWindows: [{ dayOfWeek: 'MONDAY', startTime: '08:00', endTime: '17:00' }],
 }
 
+const emptyResourceFormState = {
+  name: '',
+  type: 'LECTURE_HALL',
+  capacity: '',
+  location: '',
+  availableFrom: '',
+  availableTo: '',
+  status: 'ACTIVE',
+  description: '',
+}
+
 function prettyLabel(value) {
   return value
     .toLowerCase()
@@ -183,6 +194,26 @@ function createImagePreview(file) {
   return URL.createObjectURL(file)
 }
 
+function toDateTimeLocalValue(value) {
+  if (!value) return ''
+  const asDate = new Date(value)
+  if (Number.isNaN(asDate.getTime())) return ''
+  return `${asDate.getFullYear()}-${String(asDate.getMonth() + 1).padStart(2, '0')}-${String(asDate.getDate()).padStart(2, '0')}T${String(asDate.getHours()).padStart(2, '0')}:${String(asDate.getMinutes()).padStart(2, '0')}`
+}
+
+function mapResourceToFormState(resource) {
+  return {
+    name: resource.name ?? '',
+    type: resource.type ?? 'LECTURE_HALL',
+    capacity: resource.capacity ? String(resource.capacity) : '',
+    location: resource.location ?? '',
+    availableFrom: toDateTimeLocalValue(resource.availableFrom),
+    availableTo: toDateTimeLocalValue(resource.availableTo),
+    status: resource.status ?? 'ACTIVE',
+    description: resource.description ?? '',
+  }
+}
+
 export default function FacilitiesPage() {
   const { roles } = useAuth()
   const [filters, setFilters] = useState({
@@ -202,6 +233,12 @@ export default function FacilitiesPage() {
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState('')
   const [saving, setSaving] = useState(false)
+  const [openResourceForm, setOpenResourceForm] = useState(false)
+  const [editingResourceId, setEditingResourceId] = useState(null)
+  const [resourceFormState, setResourceFormState] = useState(emptyResourceFormState)
+  const [resourceImageFile, setResourceImageFile] = useState(null)
+  const [resourceImagePreview, setResourceImagePreview] = useState('')
+  const [resourceSaving, setResourceSaving] = useState(false)
 
   const role = useMemo(() => {
     if (roles.includes('ADMIN')) return 'ADMIN'
@@ -276,6 +313,31 @@ export default function FacilitiesPage() {
     setImagePreview('')
   }
 
+  const openCreateResourceForm = () => {
+    setEditingResourceId(null)
+    setResourceFormState(emptyResourceFormState)
+    setResourceImageFile(null)
+    setResourceImagePreview('')
+    setOpenResourceForm(true)
+  }
+
+  const openEditResourceFormFor = (resource) => {
+    setEditingResourceId(resource.id)
+    setResourceFormState(mapResourceToFormState(resource))
+    setResourceImageFile(null)
+    setResourceImagePreview(resolveImageUrl(resource.imageUrl) || '')
+    setOpenResourceForm(true)
+  }
+
+  const closeResourceForm = () => {
+    setOpenResourceForm(false)
+    setResourceSaving(false)
+    setEditingResourceId(null)
+    setResourceFormState(emptyResourceFormState)
+    setResourceImageFile(null)
+    setResourceImagePreview('')
+  }
+
   const handleFormFieldChange = (field, value) => {
     setFormState((current) => ({ ...current, [field]: value }))
   }
@@ -309,6 +371,26 @@ export default function FacilitiesPage() {
       const nextWindows = [...current.availabilityWindows]
       nextWindows[index] = { ...nextWindows[index], [field]: value }
       return { ...current, availabilityWindows: nextWindows }
+    })
+  }
+
+  const handleResourceFormFieldChange = (field, value) => {
+    setResourceFormState((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleResourceImageChange = (file) => {
+    setResourceImageFile(file || null)
+
+    setResourceImagePreview((currentPreview) => {
+      if (currentPreview && currentPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(currentPreview)
+      }
+
+      if (!file) {
+        return ''
+      }
+
+      return createImagePreview(file)
     })
   }
 
@@ -413,6 +495,91 @@ export default function FacilitiesPage() {
     }
   }
 
+  const validateResourceForm = () => {
+    if (!resourceFormState.name.trim()) {
+      return 'Resource name is required.'
+    }
+
+    const numericCapacity = Number(resourceFormState.capacity)
+    if (!Number.isFinite(numericCapacity) || numericCapacity < 1) {
+      return 'Resource capacity must be at least 1.'
+    }
+
+    if (!resourceFormState.location.trim()) {
+      return 'Resource location is required.'
+    }
+
+    if (!resourceFormState.availableFrom || !resourceFormState.availableTo) {
+      return 'Availability range is required.'
+    }
+
+    if (new Date(resourceFormState.availableFrom) >= new Date(resourceFormState.availableTo)) {
+      return 'Available from must be before available to.'
+    }
+
+    return ''
+  }
+
+  const buildResourcePayload = () => ({
+    name: resourceFormState.name.trim(),
+    type: resourceFormState.type,
+    capacity: Number(resourceFormState.capacity),
+    location: resourceFormState.location.trim(),
+    availableFrom: resourceFormState.availableFrom,
+    availableTo: resourceFormState.availableTo,
+    status: resourceFormState.status,
+    description: resourceFormState.description.trim() || null,
+  })
+
+  const handleSaveResource = async (event) => {
+    event.preventDefault()
+    setResourceSaving(true)
+    setError('')
+
+    const validationError = validateResourceForm()
+    if (validationError) {
+      setError(validationError)
+      setResourceSaving(false)
+      return
+    }
+
+    try {
+      const payload = buildResourcePayload()
+      let savedResource
+
+      if (editingResourceId) {
+        savedResource = await resourceService.update(editingResourceId, payload)
+      } else {
+        savedResource = await resourceService.create(payload)
+      }
+
+      if (resourceImageFile && savedResource?.id) {
+        await resourceService.uploadResourceImage(savedResource.id, resourceImageFile)
+      }
+
+      closeResourceForm()
+      await loadCatalogue(filters)
+    } catch (requestError) {
+      setError(requestError?.response?.data?.error || 'Failed to save resource.')
+      setResourceSaving(false)
+    }
+  }
+
+  const handleDeleteResource = async (resourceId) => {
+    const shouldDelete = window.confirm('Delete this resource permanently?')
+    if (!shouldDelete) {
+      return
+    }
+
+    setError('')
+    try {
+      await resourceService.remove(resourceId)
+      await loadCatalogue(filters)
+    } catch (requestError) {
+      setError(requestError?.response?.data?.error || 'Failed to delete resource.')
+    }
+  }
+
   const handleToggleStatus = async (facility) => {
     const nextStatus = facility.status === 'ACTIVE' ? 'OUT_OF_SERVICE' : 'ACTIVE'
     setError('')
@@ -445,6 +612,12 @@ export default function FacilitiesPage() {
       URL.revokeObjectURL(imagePreview)
     }
   }, [imagePreview])
+
+  useEffect(() => () => {
+    if (resourceImagePreview && resourceImagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(resourceImagePreview)
+    }
+  }, [resourceImagePreview])
 
   const availableLectureHalls = useMemo(() => {
     if (lectureHallsByBuilding[formState.building]?.length) {
@@ -500,14 +673,24 @@ export default function FacilitiesPage() {
             </p>
           </div>
           {canManageFacilities ? (
-            <button
-              type="button"
-              onClick={openCreateForm}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4" />
-              Add Facility
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={openCreateForm}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" />
+                Add Facility
+              </button>
+              <button
+                type="button"
+                onClick={openCreateResourceForm}
+                className="inline-flex items-center gap-2 rounded-xl border border-blue-300 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100"
+              >
+                <Plus className="h-4 w-4" />
+                Add Resource
+              </button>
+            </div>
           ) : null}
         </div>
       </motion.section>
@@ -628,7 +811,7 @@ export default function FacilitiesPage() {
                 transition={{ delay: index * 0.04 }}
                 className="glass-panel overflow-hidden p-0"
               >
-                <div className="relative h-44 overflow-hidden bg-slate-100">
+                <div className="relative h-32 overflow-hidden bg-slate-100">
                   {resolveImageUrl(facility.imageUrl) ? (
                     <img src={resolveImageUrl(facility.imageUrl)} alt={facility.name} className="h-full w-full object-cover" />
                   ) : (
@@ -712,7 +895,26 @@ export default function FacilitiesPage() {
                           Delete
                         </button>
                       </>
-                    ) : null}
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openEditResourceFormFor(facility)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteResource(facility.id)}
+                          className="soft-delete-button px-3 py-1.5"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </div>
                   ) : null}
                 </div>
@@ -849,6 +1051,9 @@ export default function FacilitiesPage() {
                         type="file"
                         accept="image/*"
                         className="hidden"
+                        onClick={(event) => {
+                          event.target.value = ''
+                        }}
                         onChange={(event) => handleImageChange(event.target.files?.[0])}
                       />
                     </label>
@@ -934,6 +1139,177 @@ export default function FacilitiesPage() {
                   className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving ? 'Saving...' : editingFacilityId ? 'Update Facility' : 'Create Facility'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {openResourceForm ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="font-display text-xl font-bold text-slate-900">
+                  {editingResourceId ? 'Edit Resource' : 'Create Resource'}
+                </h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  Provide metadata, status, and availability range for this resource.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeResourceForm}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="flex-1 space-y-4 overflow-y-auto pr-1" onSubmit={handleSaveResource}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Name</span>
+                  <input
+                    required
+                    type="text"
+                    value={resourceFormState.name}
+                    onChange={(event) => handleResourceFormFieldChange('name', event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Type</span>
+                  <select
+                    value={resourceFormState.type}
+                    onChange={(event) => handleResourceFormFieldChange('type', event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  >
+                    {facilityTypes.map((type) => (
+                      <option key={type} value={type}>{prettyLabel(type)}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Capacity</span>
+                  <input
+                    required
+                    min="1"
+                    type="number"
+                    value={resourceFormState.capacity}
+                    onChange={(event) => handleResourceFormFieldChange('capacity', event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Status</span>
+                  <select
+                    value={resourceFormState.status}
+                    onChange={(event) => handleResourceFormFieldChange('status', event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  >
+                    {facilityStatuses.map((status) => (
+                      <option key={status} value={status}>{prettyLabel(status)}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Location</span>
+                  <input
+                    required
+                    type="text"
+                    value={resourceFormState.location}
+                    onChange={(event) => handleResourceFormFieldChange('location', event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Available From</span>
+                  <input
+                    required
+                    type="datetime-local"
+                    value={resourceFormState.availableFrom}
+                    onChange={(event) => handleResourceFormFieldChange('availableFrom', event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Available To</span>
+                  <input
+                    required
+                    type="datetime-local"
+                    value={resourceFormState.availableTo}
+                    onChange={(event) => handleResourceFormFieldChange('availableTo', event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Description</span>
+                  <textarea
+                    rows={3}
+                    value={resourceFormState.description}
+                    onChange={(event) => handleResourceFormFieldChange('description', event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+
+                <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800">Resource Image</h4>
+                      <p className="mt-1 text-xs text-slate-500">Upload a photo that users will see in the catalogue.</p>
+                    </div>
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
+                      Choose Image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onClick={(event) => {
+                          event.target.value = ''
+                        }}
+                        onChange={(event) => handleResourceImageChange(event.target.files?.[0])}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    {resourceImagePreview ? (
+                      <img src={resourceImagePreview} alt="Selected resource preview" className="h-40 w-full object-cover" />
+                    ) : (
+                      <div className="flex h-40 items-center justify-center text-center text-slate-400">
+                        <div>
+                          <Building2 className="mx-auto h-10 w-10" />
+                          <p className="mt-2 text-xs font-semibold uppercase tracking-wider">No image selected</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeResourceForm}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resourceSaving}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {resourceSaving ? 'Saving...' : editingResourceId ? 'Update Resource' : 'Create Resource'}
                 </button>
               </div>
             </form>
