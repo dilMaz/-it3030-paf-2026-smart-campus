@@ -46,6 +46,8 @@ public class IncidentTicket {
     @Builder.Default
     private List<Comment> comments = new ArrayList<>(); // Embedded comments or reference IDs, embedding might be easier for Mongo if list is small
     
+    private LocalDateTime resolvedAt;
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

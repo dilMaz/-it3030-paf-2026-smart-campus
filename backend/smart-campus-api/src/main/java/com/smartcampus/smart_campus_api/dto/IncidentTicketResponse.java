@@ -32,6 +32,7 @@ public class IncidentTicketResponse {
     String resolutionNotes;
     List<String> attachmentUrls;
     List<Comment> comments;
+    LocalDateTime resolvedAt;
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
 }

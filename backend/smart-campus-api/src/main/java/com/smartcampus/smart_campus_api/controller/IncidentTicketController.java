@@ -98,6 +98,17 @@ public class IncidentTicketController {
         return ResponseEntity.ok(incidentTicketService.deleteComment(ticketId, commentId, principal));
     }
 
+    @GetMapping("/report/response-time")
+    public ResponseEntity<byte[]> downloadResponseTimeReport(@AuthenticationPrincipal Object principal) {
+        byte[] report = incidentTicketService.generateResponseTimeReport(principal);
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDispositionFormData("attachment", "response-time-report.csv");
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(report);
+    }
+
     @PostMapping(value = "/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<List<String>> uploadTicketAttachments(
             @AuthenticationPrincipal Object principal,

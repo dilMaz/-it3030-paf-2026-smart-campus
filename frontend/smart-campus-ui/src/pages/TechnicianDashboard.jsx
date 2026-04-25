@@ -165,6 +165,12 @@ export default function TechnicianDashboard() {
                   <Clock className="h-4 w-4" />
                   Created {formatDateTime(ticket.createdAt)}
                 </span>
+                {ticket.resolvedAt ? (
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-600">
+                    <Clock className="h-4 w-4" />
+                    Resolved {formatDateTime(ticket.resolvedAt)}
+                  </span>
+                ) : null}
               </div>
             </article>
           ))}

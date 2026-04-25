@@ -122,6 +122,10 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
                 ? trimToNull(request.resolutionNotes())
                 : null);
 
+        if (nextStatus == TicketStatus.RESOLVED && ticket.getResolvedAt() == null) {
+            ticket.setResolvedAt(LocalDateTime.now());
+        }
+
         if (!isBlank(request.assignedTechnicianId())) {
             ticket.setAssignedTechnicianId(request.assignedTechnicianId().trim());
         } else if (hasAnyRole(user, "TECHNICIAN")) {
@@ -216,6 +220,48 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
 
         IncidentTicket saved = incidentTicketRepository.save(ticket);
         return toResponse(saved, findReporter(saved.getReporterId()));
+    }
+
+    @Override
+    public byte[] generateResponseTimeReport(Object principal) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        userAuthorizationService.requireAnyRole(user, "ADMIN", "MANAGER");
+
+        List<IncidentTicket> tickets = incidentTicketRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .filter(t -> t.getResolvedAt() != null && t.getCreatedAt() != null)
+                .toList();
+
+        try (java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+             java.io.PrintWriter writer = new java.io.PrintWriter(out)) {
+
+            writer.println("Ticket ID,Category,Priority,Created At,Resolved At,Response Time (Hours),Performance Category");
+
+            for (IncidentTicket t : tickets) {
+                java.time.Duration duration = java.time.Duration.between(t.getCreatedAt(), t.getResolvedAt());
+                long hours = duration.toHours();
+                String category = "Green (Good)";
+                if (hours > 24) {
+                    category = "Red (Bad)";
+                } else if (hours > 2) {
+                    category = "Yellow (Mid)";
+                }
+
+                writer.printf("%s,%s,%s,%s,%s,%d,%s%n",
+                        t.getId(),
+                        t.getCategory(),
+                        t.getPriority(),
+                        t.getCreatedAt(),
+                        t.getResolvedAt(),
+                        hours,
+                        category);
+            }
+            writer.flush();
+            return out.toByteArray();
+
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate report", e);
+        }
     }
 
     @Override
@@ -320,6 +366,7 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
                 .resolutionNotes(ticket.getResolutionNotes())
                 .attachmentUrls(ticket.getAttachmentUrls())
                 .comments(ticket.getComments())
+                .resolvedAt(ticket.getResolvedAt())
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
                 .build();

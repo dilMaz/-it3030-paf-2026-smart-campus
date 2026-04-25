@@ -27,5 +27,7 @@ public interface IncidentTicketService {
 
     IncidentTicketResponse deleteComment(String ticketId, String commentId, Object principal);
 
+    byte[] generateResponseTimeReport(Object principal);
+
     List<String> uploadAttachments(Object principal, List<MultipartFile> files);
 }

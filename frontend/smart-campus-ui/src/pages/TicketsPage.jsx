@@ -638,6 +638,9 @@ export default function TicketsPage() {
                     <h4 className="font-display text-lg font-bold text-slate-900">{prettyLabel(ticket.category)} Incident</h4>
                     <p className="mt-1 text-sm text-slate-600">{ticket.resourceOrLocation}</p>
                     <p className="mt-1 text-xs text-slate-500">Created: {formatDateTime(ticket.createdAt)}</p>
+                    {ticket.resolvedAt ? (
+                      <p className="mt-1 text-xs text-slate-500">Resolved: {formatDateTime(ticket.resolvedAt)}</p>
+                    ) : null}
                     {canManage ? (
                       <p className="mt-1 text-xs text-slate-500">Reporter: {ticket.reporterName || 'User'} ({ticket.reporterEmail || 'N/A'})</p>
                     ) : null}
