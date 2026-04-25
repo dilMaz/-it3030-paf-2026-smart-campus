@@ -19,6 +19,7 @@ import EmptyState from '../components/ui/EmptyState'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import StatusBadge from '../components/ui/StatusBadge'
 import { facilityService } from '../services/facilityService'
+import { resourceService } from '../services/resourceService'
 
 const RESOURCE_TYPES = [
   { value: 'LECTURE_HALL', label: 'Lecture Halls' },
@@ -192,9 +193,19 @@ export default function UserFacilitiesPage() {
       setError('')
 
       try {
-        const data = await facilityService.getFacilities()
+        const [facilityData, resourceData] = await Promise.all([
+          facilityService.getFacilities(),
+          resourceService.getAll(),
+        ])
         if (active) {
-          setResources(Array.isArray(data) ? data : [])
+          const normalizedFacilities = Array.isArray(facilityData)
+            ? facilityData.map((item) => ({ ...item, sourceType: 'Facility', uniqueId: `facility-${item.id}` }))
+            : []
+          const normalizedResources = Array.isArray(resourceData)
+            ? resourceData.map((item) => ({ ...item, sourceType: 'Resource', uniqueId: `resource-${item.id}` }))
+            : []
+
+          setResources([...normalizedFacilities, ...normalizedResources])
         }
       } catch (requestError) {
         if (active) {
@@ -447,7 +458,7 @@ export default function UserFacilitiesPage() {
 
                   return (
                     <motion.article
-                      key={resource.id}
+                      key={resource.uniqueId || resource.id}
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.04 }}
@@ -476,6 +487,9 @@ export default function UserFacilitiesPage() {
                               </span>
                               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                                 {toSentenceCase(resource.type)}
+                              </span>
+                              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                {resource.sourceType || 'Resource'}
                               </span>
                             </div>
                           </div>

@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 import StatusBadge from '../components/ui/StatusBadge'
 import { useAuth } from '../hooks/useAuth'
 import { facilityService } from '../services/facilityService'
+import { resourceService } from '../services/resourceService'
 
 const facilityTypes = ['LECTURE_HALL', 'LAB', 'MEETING_ROOM', 'EQUIPMENT']
 const facilityStatuses = ['ACTIVE', 'OUT_OF_SERVICE']
@@ -55,6 +56,62 @@ function mapFacilityToFormState(facility) {
   }
 }
 
+function normalizeDisplayItem(item, sourceType) {
+  return {
+    ...item,
+    sourceType,
+    uniqueId: `${sourceType.toLowerCase()}-${item.id}`,
+  }
+}
+
+function matchesText(value, searchTerm) {
+  return String(value || '').toLowerCase().includes(searchTerm)
+}
+
+function matchesFilterSet(item, filters) {
+  const searchTerm = filters.search.trim().toLowerCase()
+
+  if (filters.type && item.type !== filters.type) {
+    return false
+  }
+
+  if (filters.status && item.status !== filters.status) {
+    return false
+  }
+
+  if (filters.minCapacity && Number(item.capacity || 0) < Number(filters.minCapacity)) {
+    return false
+  }
+
+  if (filters.location && !matchesText(item.location, filters.location.trim().toLowerCase())) {
+    return false
+  }
+
+  if (!searchTerm) {
+    return true
+  }
+
+  return [item.name, item.location, item.description, item.type, item.sourceType]
+    .filter(Boolean)
+    .some((value) => matchesText(value, searchTerm))
+}
+
+function formatResourceAvailability(resource) {
+  if (resource.sourceType === 'Resource' && (resource.availableFrom || resource.availableTo)) {
+    const from = resource.availableFrom ? new Date(resource.availableFrom).toLocaleString() : 'Open'
+    const to = resource.availableTo ? new Date(resource.availableTo).toLocaleString() : 'Open'
+    return `${from} - ${to}`
+  }
+
+  if (Array.isArray(resource.availabilityWindows) && resource.availabilityWindows.length > 0) {
+    return resource.availabilityWindows
+      .map((window) => `${prettyLabel(window.dayOfWeek)} ${window.startTime}-${window.endTime}`)
+      .join(' · ')
+  }
+
+  return resource.sourceType === 'Resource' ? 'Resource record' : 'No availability windows'
+}
+
 export default function FacilitiesPage() {
   const { roles } = useAuth()
   const [filters, setFilters] = useState({
@@ -65,6 +122,7 @@ export default function FacilitiesPage() {
     status: '',
   })
   const [facilities, setFacilities] = useState([])
+  const [resources, setResources] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [openForm, setOpenForm] = useState(false)
@@ -80,15 +138,20 @@ export default function FacilitiesPage() {
 
   const canManageFacilities = role === 'ADMIN'
 
-  const loadFacilities = useCallback(async (activeFilters) => {
+  const loadCatalogue = useCallback(async (activeFilters) => {
     setLoading(true)
     setError('')
     try {
-      const data = await facilityService.getFacilities(activeFilters)
-      setFacilities(Array.isArray(data) ? data : [])
+      const [facilityData, resourceData] = await Promise.all([
+        facilityService.getFacilities(activeFilters),
+        resourceService.getAll(),
+      ])
+      setFacilities(Array.isArray(facilityData) ? facilityData : [])
+      setResources(Array.isArray(resourceData) ? resourceData : [])
     } catch (requestError) {
       setError(requestError?.response?.data?.error || 'Failed to load facilities.')
       setFacilities([])
+      setResources([])
     } finally {
       setLoading(false)
     }
@@ -96,15 +159,15 @@ export default function FacilitiesPage() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      loadFacilities(filters)
+      loadCatalogue(filters)
     }, filterDebounceMs)
 
     return () => window.clearTimeout(timeoutId)
-  }, [filters, loadFacilities])
+  }, [filters, loadCatalogue])
 
   const handleApplyFilters = async (event) => {
     event.preventDefault()
-    await loadFacilities(filters)
+    await loadCatalogue(filters)
   }
 
   const handleResetFilters = async () => {
@@ -190,7 +253,7 @@ export default function FacilitiesPage() {
         await facilityService.createFacility(payload)
       }
       closeForm()
-      await loadFacilities(filters)
+      await loadCatalogue(filters)
     } catch (requestError) {
       setError(requestError?.response?.data?.error || 'Failed to save facility.')
       setSaving(false)
@@ -206,7 +269,7 @@ export default function FacilitiesPage() {
     setError('')
     try {
       await facilityService.deleteFacility(facilityId)
-      await loadFacilities(filters)
+      await loadCatalogue(filters)
     } catch (requestError) {
       setError(requestError?.response?.data?.error || 'Failed to delete facility.')
     }
@@ -217,11 +280,25 @@ export default function FacilitiesPage() {
     setError('')
     try {
       await facilityService.updateFacilityStatus(facility.id, nextStatus)
-      await loadFacilities(filters)
+      await loadCatalogue(filters)
     } catch (requestError) {
       setError(requestError?.response?.data?.error || 'Failed to update facility status.')
     }
   }
+
+  const displayFacilities = useMemo(
+    () => facilities.map((facility) => normalizeDisplayItem(facility, 'Facility')),
+    [facilities],
+  )
+
+  const displayResources = useMemo(
+    () => resources
+      .map((resource) => normalizeDisplayItem(resource, 'Resource'))
+      .filter((item) => matchesFilterSet(item, filters)),
+    [filters, resources],
+  )
+
+  const displayItems = [...displayFacilities, ...displayResources]
 
   return (
     <div className="space-y-6">
@@ -348,7 +425,7 @@ export default function FacilitiesPage() {
           </div>
         ) : null}
 
-        {!loading && facilities.length === 0 ? (
+        {!loading && displayItems.length === 0 ? (
           <EmptyState
             icon={Building2}
             title="No facilities found"
@@ -356,11 +433,11 @@ export default function FacilitiesPage() {
           />
         ) : null}
 
-        {!loading && facilities.length > 0 ? (
+        {!loading && displayItems.length > 0 ? (
           <div className="grid gap-4 xl:grid-cols-2">
-            {facilities.map((facility, index) => (
+            {displayItems.map((facility, index) => (
               <motion.article
-                key={facility.id}
+                key={facility.uniqueId}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04 }}
@@ -374,7 +451,12 @@ export default function FacilitiesPage() {
                     </p>
                     <p className="mt-1 text-sm text-slate-600">{facility.location}</p>
                   </div>
-                  <StatusBadge tone={statusTone(facility.status)}>{prettyLabel(facility.status)}</StatusBadge>
+                  <div className="flex flex-col items-end gap-2">
+                    <StatusBadge tone={statusTone(facility.status)}>{prettyLabel(facility.status)}</StatusBadge>
+                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      {facility.sourceType}
+                    </span>
+                  </div>
                 </div>
 
                 {facility.description ? (
@@ -384,20 +466,13 @@ export default function FacilitiesPage() {
                 ) : null}
 
                 <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Availability windows</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {(facility.availabilityWindows || []).map((window, windowIndex) => (
-                      <span
-                        key={`${facility.id}-${windowIndex}`}
-                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
-                      >
-                        {prettyLabel(window.dayOfWeek)} {window.startTime}-{window.endTime}
-                      </span>
-                    ))}
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Availability</p>
+                  <div className="mt-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+                    {formatResourceAvailability(facility)}
                   </div>
                 </div>
 
-                {canManageFacilities ? (
+                {canManageFacilities && facility.sourceType === 'Facility' ? (
                   <div className="mt-5 flex flex-wrap gap-2">
                     <button
                       type="button"
