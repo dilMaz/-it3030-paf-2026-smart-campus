@@ -15,7 +15,7 @@ import { NavLink } from 'react-router-dom'
 const menuByRole = {
   USER: ['Dashboard', 'Facilities', 'Bookings', 'Tickets', 'Notifications', 'Profile'],
   ADMIN: ['Dashboard', 'Admin', 'Facilities', 'Bookings', 'Tickets', 'Notifications', 'Profile'],
-  TECHNICIAN: ['Dashboard', 'Tickets', 'Notifications'],
+  TECHNICIAN: ['Dashboard', 'Tickets', 'Notifications', 'Profile'],
 }
 
 const items = [
