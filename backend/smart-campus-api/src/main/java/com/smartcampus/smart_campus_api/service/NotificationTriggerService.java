@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 
 import com.smartcampus.smart_campus_api.booking.entity.Booking;
 import com.smartcampus.smart_campus_api.booking.enums.BookingStatus;
+import com.smartcampus.smart_campus_api.model.IncidentTicket;
 import com.smartcampus.smart_campus_api.model.NotificationType;
 import com.smartcampus.smart_campus_api.model.TicketStatus;
 import com.smartcampus.smart_campus_api.model.User;
@@ -99,6 +100,32 @@ public class NotificationTriggerService {
     }
 
     // Future ticket module integration point.
+    public void handleNewTicketCreated(IncidentTicket ticket, User reporter) {
+        if (ticket == null) {
+            return;
+        }
+
+        List<User> admins = userRepository.findByRolesContaining("ADMIN");
+        if (admins == null || admins.isEmpty()) {
+            return;
+        }
+
+        String reporterName = (reporter == null || reporter.getName() == null || reporter.getName().isBlank())
+                ? "A user" : reporter.getName();
+        String ticketTitle = (ticket.getTitle() == null || ticket.getTitle().isBlank())
+                ? "a new ticket" : ticket.getTitle();
+
+        String message = String.format("New ticket created by %s: %s", reporterName, ticketTitle);
+
+        for (User admin : admins) {
+            notificationService.createNotification(
+                    admin.getId(),
+                    NotificationType.NEW_TICKET_CREATED,
+                    message,
+                    ticket.getId());
+        }
+    }
+
     public void handleTicketStatusChanged(String userId, String ticketId, TicketStatus status) {
         if (userId == null || userId.isBlank() || ticketId == null || ticketId.isBlank() || status == null) {
             return;

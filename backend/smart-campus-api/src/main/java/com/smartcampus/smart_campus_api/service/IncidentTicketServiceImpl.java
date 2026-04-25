@@ -97,6 +97,7 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
                 .build();
 
         IncidentTicket saved = incidentTicketRepository.save(ticket);
+        notificationTriggerService.handleNewTicketCreated(saved, user);
         return toResponse(saved, user);
     }
 
