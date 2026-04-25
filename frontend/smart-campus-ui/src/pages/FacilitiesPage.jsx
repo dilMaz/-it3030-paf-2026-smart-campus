@@ -21,7 +21,13 @@ const lectureHallsByBuilding = {
   'New Building': ['F301', 'F304', 'F503', 'F603', 'F204', 'F704', 'G201', 'G305', 'G1303', 'G406', 'G706'],
 }
 
+const resourceLocationsByBuilding = {
+  'Main Building': ['A301', 'A305', 'A405', 'B301', 'B203'],
+  'New Building': ['F301', 'F403', 'G402', 'G403'],
+}
+
 const buildingOptions = Object.keys(lectureHallsByBuilding)
+const resourceBuildingOptions = Object.keys(resourceLocationsByBuilding)
 
 function defaultBuilding() {
   return buildingOptions[0]
@@ -29,6 +35,14 @@ function defaultBuilding() {
 
 function defaultHallForBuilding(building) {
   return lectureHallsByBuilding[building]?.[0] || ''
+}
+
+function defaultResourceBuilding() {
+  return resourceBuildingOptions[0]
+}
+
+function defaultResourceLocationForBuilding(building) {
+  return resourceLocationsByBuilding[building]?.[0] || ''
 }
 
 const emptyFormState = {
@@ -46,7 +60,8 @@ const emptyResourceFormState = {
   name: '',
   type: 'LECTURE_HALL',
   capacity: '',
-  location: '',
+  building: defaultResourceBuilding(),
+  location: defaultResourceLocationForBuilding(defaultResourceBuilding()),
   availableFrom: '',
   availableTo: '',
   status: 'ACTIVE',
@@ -221,15 +236,55 @@ function toDateTimeLocalValue(value) {
 }
 
 function mapResourceToFormState(resource) {
+  const { building, location } = parseResourceLocationSelection(resource.location)
+
   return {
     name: resource.name ?? '',
     type: resource.type ?? 'LECTURE_HALL',
     capacity: resource.capacity ? String(resource.capacity) : '',
-    location: resource.location ?? '',
+    building,
+    location,
     availableFrom: toDateTimeLocalValue(resource.availableFrom),
     availableTo: toDateTimeLocalValue(resource.availableTo),
     status: resource.status ?? 'ACTIVE',
     description: resource.description ?? '',
+  }
+}
+
+function parseResourceLocationSelection(rawLocation) {
+  const location = String(rawLocation || '').trim()
+  const fallbackBuilding = defaultResourceBuilding()
+
+  if (!location) {
+    return {
+      building: fallbackBuilding,
+      location: defaultResourceLocationForBuilding(fallbackBuilding),
+    }
+  }
+
+  const splitMatch = location.split(/\s*[-:]\s*/)
+  if (splitMatch.length >= 2) {
+    const candidateBuilding = splitMatch[0]
+    const candidateLocation = splitMatch.slice(1).join('-')
+    if (resourceLocationsByBuilding[candidateBuilding]?.includes(candidateLocation)) {
+      return {
+        building: candidateBuilding,
+        location: candidateLocation,
+      }
+    }
+  }
+
+  const matchedBuilding = resourceBuildingOptions.find((building) => resourceLocationsByBuilding[building].includes(location))
+  if (matchedBuilding) {
+    return {
+      building: matchedBuilding,
+      location,
+    }
+  }
+
+  return {
+    building: fallbackBuilding,
+    location: defaultResourceLocationForBuilding(fallbackBuilding),
   }
 }
 
@@ -413,6 +468,14 @@ export default function FacilitiesPage() {
     setResourceFormState((current) => ({ ...current, [field]: value }))
   }
 
+  const handleResourceBuildingChange = (building) => {
+    setResourceFormState((current) => ({
+      ...current,
+      building,
+      location: defaultResourceLocationForBuilding(building),
+    }))
+  }
+
   const handleResourceAvailableFromChange = (value) => {
     setResourceFormState((current) => {
       const next = { ...current, availableFrom: value }
@@ -560,8 +623,8 @@ export default function FacilitiesPage() {
       return 'Resource capacity must be at least 1.'
     }
 
-    if (!resourceFormState.location.trim()) {
-      return 'Resource location is required.'
+    if (!resourceFormState.building || !resourceFormState.location) {
+      return 'Please select a building and location.'
     }
 
     if (!resourceFormState.availableFrom || !resourceFormState.availableTo) {
@@ -599,7 +662,7 @@ export default function FacilitiesPage() {
     name: resourceFormState.name.trim(),
     type: resourceFormState.type,
     capacity: Number(resourceFormState.capacity),
-    location: resourceFormState.location.trim(),
+    location: `${resourceFormState.building} - ${resourceFormState.location}`,
     availableFrom: resourceFormState.availableFrom,
     availableTo: resourceFormState.availableTo,
     status: resourceFormState.status,
@@ -703,6 +766,15 @@ export default function FacilitiesPage() {
     return lectureHallsByBuilding[fallback] || []
   }, [formState.building])
 
+  const availableResourceLocations = useMemo(() => {
+    if (resourceLocationsByBuilding[resourceFormState.building]?.length) {
+      return resourceLocationsByBuilding[resourceFormState.building]
+    }
+
+    const fallback = defaultResourceBuilding()
+    return resourceLocationsByBuilding[fallback] || []
+  }, [resourceFormState.building])
+
   useEffect(() => {
     const nextBuilding = lectureHallsByBuilding[formState.building] ? formState.building : defaultBuilding()
     const hallsForBuilding = lectureHallsByBuilding[nextBuilding] || []
@@ -718,6 +790,24 @@ export default function FacilitiesPage() {
       }))
     }
   }, [formState.building, formState.location])
+
+  useEffect(() => {
+    const nextBuilding = resourceLocationsByBuilding[resourceFormState.building]
+      ? resourceFormState.building
+      : defaultResourceBuilding()
+    const locationsForBuilding = resourceLocationsByBuilding[nextBuilding] || []
+    const nextLocation = locationsForBuilding.includes(resourceFormState.location)
+      ? resourceFormState.location
+      : (locationsForBuilding[0] || '')
+
+    if (nextBuilding !== resourceFormState.building || nextLocation !== resourceFormState.location) {
+      setResourceFormState((current) => ({
+        ...current,
+        building: nextBuilding,
+        location: nextLocation,
+      }))
+    }
+  }, [resourceFormState.building, resourceFormState.location])
 
   const displayFacilities = useMemo(
     () => facilities.map((facility) => normalizeDisplayItem(facility, 'Facility')),
@@ -1293,15 +1383,33 @@ export default function FacilitiesPage() {
                   </select>
                 </label>
 
-                <label className="block md:col-span-2">
-                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Location</span>
-                  <input
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Building</span>
+                  <select
                     required
-                    type="text"
+                    value={resourceFormState.building}
+                    onChange={(event) => handleResourceBuildingChange(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  >
+                    {resourceBuildingOptions.map((building) => (
+                      <option key={building} value={building}>{building}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Location</span>
+                  <select
+                    required
                     value={resourceFormState.location}
                     onChange={(event) => handleResourceFormFieldChange('location', event.target.value)}
+                    disabled={!availableResourceLocations.length}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
-                  />
+                  >
+                    {availableResourceLocations.map((location) => (
+                      <option key={location} value={location}>{location}</option>
+                    ))}
+                  </select>
                 </label>
 
                 <label className="block">
