@@ -8,7 +8,7 @@ function resolveDestination(notification) {
   const type = notification?.type
   const referenceId = notification?.referenceId
 
-  if (type === 'BOOKING_APPROVED' || type === 'BOOKING_REJECTED') {
+  if (type === 'BOOKING_APPROVED' || type === 'BOOKING_REJECTED' || type === 'NEW_BOOKING_REQUEST') {
     return referenceId ? `/bookings?focus=${referenceId}` : '/bookings'
   }
 

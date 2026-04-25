@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import Skeleton from '../components/ui/Skeleton'
 import StatusBadge from '../components/ui/StatusBadge'
+import Modal from '../components/ui/Modal'
 import { AUTH_USER_STORAGE_KEY } from '../constants/authStorage'
 import api from '../services/api'
 
@@ -15,6 +16,8 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [savingUserId, setSavingUserId] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [userToDelete, setUserToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const currentUser = useMemo(() => {
     try {
@@ -92,6 +95,25 @@ export default function AdminUsersPage() {
       .finally(() => {
         setSavingUserId('')
       })
+  }
+
+  const confirmDelete = () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+
+    api.delete(`/api/auth/users/${userToDelete.id}`)
+      .then(() => {
+        setUsers((current) => current.filter((u) => u.id !== userToDelete.id));
+        toast.success('User deleted successfully');
+        setUserToDelete(null);
+      })
+      .catch((requestError) => {
+        const errorMsg = requestError?.response?.data?.error || 'Unable to delete user.';
+        toast.error(errorMsg);
+      })
+      .finally(() => {
+        setIsDeleting(false);
+      });
   }
 
   const filteredUsers = useMemo(() => {
@@ -246,13 +268,8 @@ export default function AdminUsersPage() {
                               </div>
                             </div>
                             <button
-                              className="ml-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-100"
-                              onClick={() => {
-                                if (window.confirm('Are you sure you want to delete this user?')) {
-                                  // Implement delete logic here
-                                  toast('Delete user feature not implemented')
-                                }
-                              }}
+                              className="ml-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              onClick={() => setUserToDelete(user)}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                               Delete
@@ -268,11 +285,22 @@ export default function AdminUsersPage() {
           </table>
         </div>
         
-        {/* Footer */}
         <div className="border-t border-slate-200 bg-slate-50/50 p-4 text-center text-xs font-medium text-slate-500">
           Showing {filteredUsers.length} users
         </div>
       </div>
+
+      <Modal
+        isOpen={!!userToDelete}
+        onClose={() => setUserToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Delete User"
+        message={`Are you sure you want to delete ${userToDelete?.name || 'this user'}? This action cannot be undone.`}
+        confirmText="Delete User"
+        cancelText="Cancel"
+        isDestructive={true}
+        isLoading={isDeleting}
+      />
     </div>
   )
 }

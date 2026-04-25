@@ -6,7 +6,11 @@ import com.smartcampus.smart_campus_api.booking.entity.Booking;
 import com.smartcampus.smart_campus_api.booking.enums.BookingStatus;
 import com.smartcampus.smart_campus_api.model.NotificationType;
 import com.smartcampus.smart_campus_api.model.TicketStatus;
+import com.smartcampus.smart_campus_api.model.User;
 import com.smartcampus.smart_campus_api.repository.UserRepository;
+
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 
@@ -60,6 +64,38 @@ public class NotificationTriggerService {
         return userRepository.findByEmail(booking.getUserEmail().trim().toLowerCase())
                 .map(user -> user.getId())
                 .orElse(null);
+    }
+
+    public void handleNewBookingRequest(Booking booking) {
+        if (booking == null) {
+            return;
+        }
+
+        List<User> admins = userRepository.findByRolesContaining("ADMIN");
+        if (admins == null || admins.isEmpty()) {
+            return;
+        }
+
+        String userName = (booking.getUserName() == null || booking.getUserName().isBlank())
+                ? "A user" : booking.getUserName();
+        String resourceName = (booking.getResourceName() == null || booking.getResourceName().isBlank())
+                ? "a resource" : booking.getResourceName();
+        String purpose = (booking.getPurpose() == null || booking.getPurpose().isBlank())
+                ? "No purpose provided" : booking.getPurpose();
+        
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm");
+        String dateTime = booking.getStartTime() != null ? booking.getStartTime().format(formatter) : "Unknown time";
+
+        String message = String.format("New booking request from %s for %s on %s. Purpose: %s",
+                userName, resourceName, dateTime, purpose);
+
+        for (User admin : admins) {
+            notificationService.createNotification(
+                    admin.getId(),
+                    NotificationType.NEW_BOOKING_REQUEST,
+                    message,
+                    booking.getId());
+        }
     }
 
     // Future ticket module integration point.
