@@ -3,6 +3,7 @@ import AppShell from './components/layout/AppShell'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import Dashboard from './pages/Dashboard'
+import TechnicianDashboard from './pages/TechnicianDashboard'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import NotificationsPage from './pages/NotificationsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
@@ -14,6 +15,14 @@ import BookingsPage from './pages/BookingsPage'
 import ProfilePage from './pages/ProfilePage'
 import AdminDashboard from './pages/AdminDashboard'
 import TicketsPage from './pages/TicketsPage'
+import { useAuth } from './hooks/useAuth'
+
+function DashboardRouter() {
+  const { roles } = useAuth()
+  const isTechnician = roles.includes('TECHNICIAN')
+
+  return isTechnician ? <TechnicianDashboard /> : <Dashboard />
+}
 
 function App() {
   return (
@@ -26,7 +35,7 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<DashboardRouter />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
 

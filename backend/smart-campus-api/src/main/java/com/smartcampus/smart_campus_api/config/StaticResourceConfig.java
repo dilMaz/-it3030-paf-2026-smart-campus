@@ -11,6 +11,9 @@ public class StaticResourceConfig implements WebMvcConfigurer {
     @Value("${app.avatar-upload-dir:uploads/avatars}")
     private String avatarUploadDir;
 
+    @Value("${app.ticket-upload-dir:uploads/tickets}")
+    private String ticketUploadDir;
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         String normalized = avatarUploadDir.replace("\\", "/");
@@ -20,5 +23,13 @@ public class StaticResourceConfig implements WebMvcConfigurer {
 
         registry.addResourceHandler("/uploads/avatars/**")
                 .addResourceLocations("file:" + normalized);
+
+        String normalizedTickets = ticketUploadDir.replace("\\", "/");
+        if (!normalizedTickets.endsWith("/")) {
+            normalizedTickets = normalizedTickets + "/";
+        }
+
+        registry.addResourceHandler("/uploads/tickets/**")
+                .addResourceLocations("file:" + normalizedTickets);
     }
 }
