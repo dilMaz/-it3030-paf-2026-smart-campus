@@ -838,24 +838,14 @@ export default function FacilitiesPage() {
             </p>
           </div>
           {canManageFacilities ? (
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={openCreateForm}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4" />
-                Add Facility
-              </button>
-              <button
-                type="button"
-                onClick={openCreateResourceForm}
-                className="inline-flex items-center gap-2 rounded-xl border border-blue-300 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100"
-              >
-                <Plus className="h-4 w-4" />
-                Add Resource
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={openCreateResourceForm}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add Resource
+            </button>
           ) : null}
         </div>
       </motion.section>
