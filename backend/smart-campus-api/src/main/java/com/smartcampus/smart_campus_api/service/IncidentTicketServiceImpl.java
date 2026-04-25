@@ -291,7 +291,15 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
         return userRepository.findById(reporterId).orElse(null);
     }
 
+    private User findTechnician(String technicianId) {
+        if (isBlank(technicianId)) {
+            return null;
+        }
+        return userRepository.findById(technicianId.trim()).orElse(null);
+    }
+
     private IncidentTicketResponse toResponse(IncidentTicket ticket, User reporter) {
+        User technician = findTechnician(ticket.getAssignedTechnicianId());
         return IncidentTicketResponse.builder()
                 .id(ticket.getId())
                 .reporterId(ticket.getReporterId())
@@ -306,6 +314,9 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
                 .status(ticket.getStatus())
                 .rejectionReason(ticket.getRejectionReason())
                 .assignedTechnicianId(ticket.getAssignedTechnicianId())
+                .assignedTechnicianName(technician == null ? null : technician.getName())
+                .assignedTechnicianEmail(technician == null ? null : technician.getEmail())
+                .assignedTechnicianType(technician == null ? null : technician.getTechnicianType())
                 .resolutionNotes(ticket.getResolutionNotes())
                 .attachmentUrls(ticket.getAttachmentUrls())
                 .comments(ticket.getComments())

@@ -26,6 +26,9 @@ public class IncidentTicketResponse {
     TicketStatus status;
     String rejectionReason;
     String assignedTechnicianId;
+    String assignedTechnicianName;
+    String assignedTechnicianEmail;
+    String assignedTechnicianType;
     String resolutionNotes;
     List<String> attachmentUrls;
     List<Comment> comments;

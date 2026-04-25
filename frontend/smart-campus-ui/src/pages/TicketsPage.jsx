@@ -656,7 +656,12 @@ export default function TicketsPage() {
 
                 {canManage ? (
                   <p className="mt-2 text-xs text-slate-500">
-                    Assigned technician ID: {ticket.assignedTechnicianId || 'Unassigned'}
+                    Assigned technician: {ticket.assignedTechnicianName || ticket.assignedTechnicianEmail || ticket.assignedTechnicianId || 'Unassigned'}
+                    {ticket.assignedTechnicianType ? (
+                      <span className="ml-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                        {ticket.assignedTechnicianType}
+                      </span>
+                    ) : null}
                   </p>
                 ) : null}
 
