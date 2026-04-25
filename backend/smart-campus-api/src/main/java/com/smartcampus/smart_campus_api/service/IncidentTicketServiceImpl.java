@@ -345,7 +345,12 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
     }
 
     private IncidentTicketResponse toResponse(IncidentTicket ticket, User reporter) {
+<<<<<<< Updated upstream
         User technician = findTechnician(ticket.getAssignedTechnicianId());
+=======
+        User technician = findReporter(ticket.getAssignedTechnicianId());
+        
+>>>>>>> Stashed changes
         return IncidentTicketResponse.builder()
                 .id(ticket.getId())
                 .reporterId(ticket.getReporterId())
@@ -361,8 +366,11 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
                 .rejectionReason(ticket.getRejectionReason())
                 .assignedTechnicianId(ticket.getAssignedTechnicianId())
                 .assignedTechnicianName(technician == null ? null : technician.getName())
+<<<<<<< Updated upstream
                 .assignedTechnicianEmail(technician == null ? null : technician.getEmail())
                 .assignedTechnicianType(technician == null ? null : technician.getTechnicianType())
+=======
+>>>>>>> Stashed changes
                 .resolutionNotes(ticket.getResolutionNotes())
                 .attachmentUrls(ticket.getAttachmentUrls())
                 .comments(ticket.getComments())

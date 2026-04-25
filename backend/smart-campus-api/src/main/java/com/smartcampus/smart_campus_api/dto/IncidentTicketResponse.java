@@ -27,8 +27,11 @@ public class IncidentTicketResponse {
     String rejectionReason;
     String assignedTechnicianId;
     String assignedTechnicianName;
+<<<<<<< Updated upstream
     String assignedTechnicianEmail;
     String assignedTechnicianType;
+=======
+>>>>>>> Stashed changes
     String resolutionNotes;
     List<String> attachmentUrls;
     List<Comment> comments;
