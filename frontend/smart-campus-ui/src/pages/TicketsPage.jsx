@@ -10,6 +10,13 @@ import api from '../services/api'
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED']
 const LOCKED_ASSIGNMENT_STATUSES = new Set(['RESOLVED', 'REJECTED'])
+const MAX_ATTACHMENTS = 3
+
+function resolveAttachmentUrl(value) {
+  if (!value) return ''
+  if (/^https?:\/\//i.test(value)) return value
+  return `${api.defaults.baseURL}${value}`
+}
 
 function prettyLabel(value = '') {
   return value
@@ -87,7 +94,8 @@ export default function TicketsPage() {
     status: '',
     priority: '',
   })
-  const [selectedFiles, setSelectedFiles] = useState([])
+  const [attachments, setAttachments] = useState([])
+  const [uploadingAttachments, setUploadingAttachments] = useState(false)
   const [form, setForm] = useState({
     resourceOrLocation: '',
     category: '',
@@ -180,11 +188,6 @@ export default function TicketsPage() {
       return
     }
 
-    if (selectedFiles.length > 3) {
-      setError('Only up to 3 attachments are allowed.')
-      return
-    }
-
     setSubmitting(true)
     try {
       await ticketService.createTicket({
@@ -193,7 +196,7 @@ export default function TicketsPage() {
         contactInformation: form.contactInformation.trim(),
         description: form.description.trim(),
         priority: form.priority,
-        attachmentUrls: selectedFiles.map((file) => file.name),
+        attachmentUrls: attachments.map((item) => item.url).filter(Boolean),
       })
 
       setForm({
@@ -203,7 +206,12 @@ export default function TicketsPage() {
         description: '',
         priority: 'MEDIUM',
       })
-      setSelectedFiles([])
+      attachments.forEach((item) => {
+        if (item.previewUrl) {
+          URL.revokeObjectURL(item.previewUrl)
+        }
+      })
+      setAttachments([])
       setSuccess('Ticket created successfully.')
       await loadTickets()
     } catch (requestError) {
@@ -220,7 +228,66 @@ export default function TicketsPage() {
 
   const handleFileSelection = (event) => {
     const files = Array.from(event.target.files || [])
-    setSelectedFiles(files.slice(0, 3))
+    event.target.value = ''
+
+    const remaining = Math.max(0, MAX_ATTACHMENTS - attachments.length)
+    const nextFiles = files.slice(0, remaining)
+    if (nextFiles.length === 0) {
+      setError(`You can upload up to ${MAX_ATTACHMENTS} images.`)
+      return
+    }
+
+    setError('')
+    setUploadingAttachments(true)
+
+    const localItems = nextFiles.map((file) => ({
+      id: `${file.name}-${file.size}-${file.lastModified}`,
+      file,
+      name: file.name,
+      previewUrl: URL.createObjectURL(file),
+      url: '',
+    }))
+
+    setAttachments((current) => [...current, ...localItems])
+
+    ticketService.uploadAttachments(nextFiles)
+      .then((uploadedUrls) => {
+        const urls = Array.isArray(uploadedUrls) ? uploadedUrls : []
+        setAttachments((current) => {
+          let urlIndex = 0
+          return current.map((item) => {
+            if (localItems.some((local) => local.id === item.id)) {
+              const nextUrl = urls[urlIndex] || ''
+              urlIndex += 1
+              return { ...item, url: nextUrl }
+            }
+            return item
+          })
+        })
+      })
+      .catch((requestError) => {
+        const message = requestError?.response?.data?.message || requestError?.response?.data?.error || 'Failed to upload attachment.'
+        setError(message)
+        setAttachments((current) => current.filter((item) => !localItems.some((local) => local.id === item.id)))
+        localItems.forEach((item) => {
+          if (item.previewUrl) {
+            URL.revokeObjectURL(item.previewUrl)
+          }
+        })
+      })
+      .finally(() => {
+        setUploadingAttachments(false)
+      })
+  }
+
+  const removeAttachment = (attachmentId) => {
+    setAttachments((current) => {
+      const found = current.find((item) => item.id === attachmentId)
+      if (found?.previewUrl) {
+        URL.revokeObjectURL(found.previewUrl)
+      }
+      return current.filter((item) => item.id !== attachmentId)
+    })
   }
 
   const updateStatus = async (ticket, nextStatus) => {
@@ -441,13 +508,36 @@ export default function TicketsPage() {
                 <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center">
                   <Upload className="h-5 w-5 text-slate-500" />
                   <span className="mt-2 text-sm font-medium text-slate-700">Click to upload images</span>
-                  <span className="mt-1 text-xs text-slate-500">PNG, JPG, GIF. Up to 3 files.</span>
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelection} />
+                  <span className="mt-1 text-xs text-slate-500">PNG, JPG, GIF. Up to {MAX_ATTACHMENTS} files.</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleFileSelection} />
                 </label>
-                {selectedFiles.length > 0 ? (
-                  <div className="mt-2 space-y-1">
-                    {selectedFiles.map((file) => (
-                      <p key={file.name} className="text-xs text-slate-600">{file.name}</p>
+                <div className="mt-2 flex items-center justify-between text-xs font-medium text-slate-600">
+                  <span>{attachments.length} / {MAX_ATTACHMENTS} uploaded</span>
+                  {uploadingAttachments ? <span className="text-slate-500">Uploading...</span> : null}
+                </div>
+
+                {attachments.length > 0 ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {attachments.map((item) => (
+                      <div key={item.id} className="relative overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <img
+                          src={item.previewUrl}
+                          alt={item.name}
+                          className="h-24 w-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(item.id)}
+                          className="absolute right-1 top-1 rounded-lg bg-white/90 px-2 py-1 text-[11px] font-bold text-slate-700 shadow hover:bg-white"
+                        >
+                          Remove
+                        </button>
+                        {!item.url ? (
+                          <div className="absolute inset-x-0 bottom-0 bg-slate-900/60 px-2 py-1 text-[11px] font-semibold text-white">
+                            Uploading...
+                          </div>
+                        ) : null}
+                      </div>
                     ))}
                   </div>
                 ) : null}
@@ -455,7 +545,7 @@ export default function TicketsPage() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || uploadingAttachments || attachments.some((item) => !item.url)}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-70"
               >
                 <Wrench className="h-4 w-4" />
@@ -618,11 +708,25 @@ export default function TicketsPage() {
 
                 {ticket.attachmentUrls?.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {ticket.attachmentUrls.map((attachment) => (
-                      <span key={attachment} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
-                        {attachment}
-                      </span>
-                    ))}
+                    {ticket.attachmentUrls.map((attachment) => {
+                      const url = resolveAttachmentUrl(attachment)
+                      return (
+                        <a
+                          key={attachment}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white"
+                          title="Open attachment"
+                        >
+                          <img
+                            src={url}
+                            alt="Ticket attachment"
+                            className="h-20 w-20 object-cover transition group-hover:scale-[1.02]"
+                          />
+                        </a>
+                      )
+                    })}
                   </div>
                 ) : null}
 

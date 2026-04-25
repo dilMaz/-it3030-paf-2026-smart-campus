@@ -6,6 +6,19 @@ export const ticketService = {
     return response.data
   },
 
+  async uploadAttachments(files = []) {
+    const formData = new FormData()
+    files.forEach((file) => {
+      formData.append('files', file)
+    })
+
+    const response = await api.post('/api/tickets/attachments', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+
+    return response.data
+  },
+
   async assignTechnician(ticketId, payload) {
     const response = await api.patch(`/api/tickets/${ticketId}/assign`, payload)
     return response.data
