@@ -54,11 +54,22 @@ public class BookingServiceImpl implements BookingService {
         User user = userAuthorizationService.requireAuthenticatedUser(principal);
         userAuthorizationService.requireAnyRole(user, "USER", "ADMIN");
 
+        // Validate that start and end times are not in the past
+        LocalDateTime now = LocalDateTime.now();
+        if (request.startTime().isBefore(now)) {
+            throw new IllegalArgumentException("Booking start time cannot be in the past");
+        }
+
         Resource resource = resourceRepository.findById(request.resourceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Resource not found for id: " + request.resourceId()));
 
         if (resource.getStatus() != ResourceStatus.ACTIVE) {
             throw new IllegalArgumentException("Resource is not available for booking");
+        }
+
+        // Check for booking conflicts with approved bookings
+        if (hasBookingConflict(resource.getId(), request.startTime().toString(), request.endTime().toString(), null)) {
+            throw new IllegalArgumentException("This resource is already booked for the selected time. Please choose a different time slot.");
         }
 
         Booking booking = new Booking();
@@ -154,12 +165,23 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw new IllegalArgumentException("Only pending bookings can be updated");
         }
+
+        // Validate that start and end times are not in the past
+        LocalDateTime now = LocalDateTime.now();
+        if (request.startTime().isBefore(now)) {
+            throw new IllegalArgumentException("Booking start time cannot be in the past");
+        }
         
         Resource resource = resourceRepository.findById(request.resourceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Resource not found for id: " + request.resourceId()));
         
         if (resource.getStatus() != ResourceStatus.ACTIVE) {
             throw new IllegalArgumentException("Resource is not available for booking");
+        }
+
+        // Check for booking conflicts, excluding current booking
+        if (hasBookingConflict(resource.getId(), request.startTime().toString(), request.endTime().toString(), bookingId)) {
+            throw new IllegalArgumentException("This resource is already booked for the selected time. Please choose a different time slot.");
         }
         
         booking.setResourceId(resource.getId());

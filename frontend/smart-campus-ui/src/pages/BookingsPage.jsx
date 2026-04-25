@@ -274,6 +274,19 @@ useEffect(() => {
     }
 
     try {
+      // Check for booking conflicts before submitting
+      const conflictCheck = await bookingService.checkBookingConflict(
+        form.resourceId,
+        form.startTime,
+        form.endTime,
+      )
+      
+      if (conflictCheck.hasConflict) {
+        setError('This resource is already booked for the selected time. Please choose a different time slot.')
+        setSaving(false)
+        return
+      }
+
       await bookingService.createBooking({
         resourceId: form.resourceId,
         startTime: form.startTime,

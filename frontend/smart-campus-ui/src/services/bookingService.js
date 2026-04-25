@@ -25,4 +25,18 @@ export const bookingService = {
     const response = await api.patch(`/api/bookings/${id}/reject`)
     return response.data
   },
+
+  // Check for booking conflicts before creating/updating
+  async checkBookingConflict(resourceId, startTime, endTime, excludeBookingId = null) {
+    const params = new URLSearchParams({
+      resourceId,
+      startTime,
+      endTime,
+    })
+    if (excludeBookingId) {
+      params.append('excludeBookingId', excludeBookingId)
+    }
+    const response = await api.get(`/api/bookings/conflict-check?${params.toString()}`)
+    return response.data
+  },
 }
