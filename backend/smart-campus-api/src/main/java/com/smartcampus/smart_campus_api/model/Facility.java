@@ -22,6 +22,7 @@ public class Facility {
     private String location;
     private FacilityStatus status;
     private String description;
+    private String imageUrl;
     private List<AvailabilityWindow> availabilityWindows;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

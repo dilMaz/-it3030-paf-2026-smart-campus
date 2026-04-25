@@ -2,8 +2,6 @@ import { motion } from 'framer-motion'
 import {
   ArrowRight,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   Filter,
   Layers3,
@@ -15,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { API_BASE_URL } from '../config/env'
 import EmptyState from '../components/ui/EmptyState'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -102,62 +101,16 @@ function getResourceCode(resource, index) {
   return `${prefix}-${String(index + 1).padStart(3, '0')}`
 }
 
+function resolveImageUrl(imageUrl) {
+  if (!imageUrl) return ''
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl
+  return `${API_BASE_URL}${imageUrl}`
+}
+
 function matchesAvailability(resource, availability) {
   if (availability === 'ANY') return true
   if (availability === 'TODAY') return resource.status === 'ACTIVE'
   return resource.status === 'ACTIVE'
-}
-
-function buildCoverArt(resource, index) {
-  const theme = getTheme(resource.type)
-  const accentStripe = index % 3 === 0 ? '#ffffff' : index % 3 === 1 ? '#e2e8f0' : '#cbd5e1'
-
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="${resource.name}">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="${theme.seat}" stop-opacity="0.15" />
-          <stop offset="45%" stop-color="${theme.seat}" stop-opacity="0.4" />
-          <stop offset="100%" stop-color="${theme.seat}" stop-opacity="0.9" />
-        </linearGradient>
-        <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
-        </linearGradient>
-      </defs>
-      <rect width="640" height="360" rx="28" fill="url(#bg)" />
-      <circle cx="520" cy="68" r="116" fill="#ffffff" opacity="0.12" />
-      <circle cx="112" cy="74" r="66" fill="#ffffff" opacity="0.10" />
-      <rect x="34" y="34" width="572" height="292" rx="24" fill="url(#glass)" opacity="0.6" />
-      <rect x="76" y="124" width="488" height="120" rx="18" fill="#ffffff" opacity="0.15" />
-      <rect x="94" y="142" width="78" height="68" rx="12" fill="#ffffff" opacity="0.22" />
-      <rect x="188" y="142" width="78" height="68" rx="12" fill="#ffffff" opacity="0.22" />
-      <rect x="282" y="142" width="78" height="68" rx="12" fill="#ffffff" opacity="0.22" />
-      <rect x="376" y="142" width="78" height="68" rx="12" fill="#ffffff" opacity="0.22" />
-      <rect x="470" y="142" width="70" height="68" rx="12" fill="#ffffff" opacity="0.22" />
-      <path d="M82 248h476c18 0 28 10 28 28v4H54v-4c0-18 10-28 28-28Z" fill="#0f172a" opacity="0.42" />
-      <rect x="76" y="258" width="488" height="24" rx="12" fill="#ffffff" opacity="0.18" />
-      <g fill="${theme.seat}">
-        <rect x="108" y="170" width="20" height="18" rx="5" />
-        <rect x="136" y="170" width="20" height="18" rx="5" />
-        <rect x="164" y="170" width="20" height="18" rx="5" />
-        <rect x="208" y="170" width="20" height="18" rx="5" />
-        <rect x="236" y="170" width="20" height="18" rx="5" />
-        <rect x="264" y="170" width="20" height="18" rx="5" />
-        <rect x="308" y="170" width="20" height="18" rx="5" />
-        <rect x="336" y="170" width="20" height="18" rx="5" />
-        <rect x="364" y="170" width="20" height="18" rx="5" />
-        <rect x="408" y="170" width="20" height="18" rx="5" />
-        <rect x="436" y="170" width="20" height="18" rx="5" />
-        <rect x="464" y="170" width="20" height="18" rx="5" />
-      </g>
-      <rect x="46" y="46" width="162" height="34" rx="17" fill="#ffffff" opacity="0.16" />
-      <text x="66" y="68" fill="#ffffff" font-family="Manrope, Arial, sans-serif" font-size="14" font-weight="700">Campus catalogue</text>
-      <rect x="474" y="46" width="102" height="34" rx="17" fill="${accentStripe}" opacity="0.18" />
-    </svg>
-  `
-
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
 }
 
 function normalizeSearch(resource) {
@@ -454,7 +407,7 @@ export default function UserFacilitiesPage() {
               <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredResources.map((resource, index) => {
                   const theme = getTheme(resource.type)
-                  const coverArt = buildCoverArt(resource, index)
+                  const imageUrl = resolveImageUrl(resource.imageUrl)
 
                   return (
                     <motion.article
@@ -464,17 +417,18 @@ export default function UserFacilitiesPage() {
                       transition={{ delay: index * 0.04 }}
                       className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_20px_40px_rgba(15,23,42,0.08)] transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_24px_46px_rgba(15,23,42,0.12)]"
                     >
-                      <div className="relative h-44 overflow-hidden">
-                        <img src={coverArt} alt="" className="h-full w-full object-cover" />
-                        <div className={`absolute inset-0 bg-gradient-to-t ${theme.accent} opacity-35`} />
-                        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-3 pb-3 text-white">
-                          <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/65 backdrop-blur-sm">
-                            <ChevronLeft className="h-4 w-4" />
-                          </button>
-                          <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/65 backdrop-blur-sm">
-                            <ChevronRight className="h-4 w-4" />
-                          </button>
-                        </div>
+                      <div className="relative h-44 overflow-hidden bg-slate-100">
+                        {imageUrl ? (
+                          <img src={imageUrl} alt={resource.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400">
+                            <div className="text-center">
+                              <Building2 className="mx-auto h-10 w-10" />
+                              <p className="mt-2 text-xs font-semibold uppercase tracking-wider">No image added</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className={`absolute inset-0 bg-gradient-to-t ${theme.accent} opacity-15`} />
                       </div>
 
                       <div className="p-4">

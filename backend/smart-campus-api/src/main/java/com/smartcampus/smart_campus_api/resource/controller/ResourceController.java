@@ -3,6 +3,7 @@ package com.smartcampus.smart_campus_api.resource.controller;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.smartcampus.smart_campus_api.resource.dto.ResourceRequest;
 import com.smartcampus.smart_campus_api.resource.dto.ResourceResponse;
@@ -68,6 +70,14 @@ public class ResourceController {
             @Valid @RequestBody ResourceRequest request,
             @AuthenticationPrincipal Object principal) {
         return ResponseEntity.ok(resourceService.updateResource(id, request, principal));
+    }
+
+    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResourceResponse> uploadResourceImage(
+            @PathVariable String id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal Object principal) {
+        return ResponseEntity.ok(resourceService.uploadResourceImage(id, file, principal));
     }
 
     @DeleteMapping("/{id}")

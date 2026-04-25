@@ -26,6 +26,8 @@ public class Resource {
 
     private String location;
 
+    private String imageUrl;
+
     private LocalDateTime availableFrom;
 
     private LocalDateTime availableTo;

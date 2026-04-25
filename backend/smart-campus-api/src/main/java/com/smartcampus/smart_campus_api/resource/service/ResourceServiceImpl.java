@@ -1,12 +1,22 @@
 package com.smartcampus.smart_campus_api.resource.service;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.stream.Stream;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.smartcampus.smart_campus_api.exception.ResourceNotFoundException;
 import com.smartcampus.smart_campus_api.model.User;
@@ -27,6 +37,9 @@ public class ResourceServiceImpl implements ResourceService {
 
     private final ResourceRepository resourceRepository;
     private final UserAuthorizationService userAuthorizationService;
+
+    @Value("${app.resource-upload-dir:uploads/resources}")
+    private String resourceUploadDir;
 
     @Override
     public List<ResourceResponse> getAllResources(Object principal) {
@@ -116,6 +129,17 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
+    public ResourceResponse uploadResourceImage(String id, MultipartFile file, Object principal) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        userAuthorizationService.requireAnyRole(user, "ADMIN");
+
+        Resource resource = findResourceOrThrow(id);
+        resource.setImageUrl(storeImage(file, resourceUploadDir, id));
+        resource.setUpdatedAt(LocalDateTime.now());
+        return toResponse(resourceRepository.save(resource));
+    }
+
+    @Override
     public void deleteResource(String id, Object principal) {
         User user = userAuthorizationService.requireAuthenticatedUser(principal);
         userAuthorizationService.requireAnyRole(user, "ADMIN");
@@ -147,6 +171,7 @@ public class ResourceServiceImpl implements ResourceService {
                 .type(resource.getType())
                 .capacity(resource.getCapacity())
                 .location(resource.getLocation())
+                .imageUrl(resource.getImageUrl())
                 .availableFrom(resource.getAvailableFrom())
                 .availableTo(resource.getAvailableTo())
                 .status(resource.getStatus())
@@ -165,5 +190,41 @@ public class ResourceServiceImpl implements ResourceService {
 
     private boolean containsIgnoreCase(String value, String normalizedSearch) {
         return value != null && value.toLowerCase(Locale.ROOT).contains(normalizedSearch);
+    }
+
+    private String storeImage(MultipartFile file, String uploadDir, String entityId) {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please select an image to upload");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only image files are allowed");
+        }
+
+        String extension = extractExtension(file.getOriginalFilename());
+        String fileName = entityId + "-" + UUID.randomUUID() + extension;
+        Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+
+        try {
+            Files.createDirectories(uploadPath);
+            Files.copy(file.getInputStream(), uploadPath.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to store image", exception);
+        }
+
+        return "/uploads/resources/" + fileName;
+    }
+
+    private String extractExtension(String fileName) {
+        if (fileName == null || fileName.isBlank() || !fileName.contains(".")) {
+            return ".png";
+        }
+
+        String extension = fileName.substring(fileName.lastIndexOf('.')).toLowerCase(Locale.ROOT);
+        return switch (extension) {
+            case ".jpg", ".jpeg", ".png", ".gif", ".webp" -> extension;
+            default -> ".png";
+        };
     }
 }

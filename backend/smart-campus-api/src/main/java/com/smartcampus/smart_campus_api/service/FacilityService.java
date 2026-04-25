@@ -1,17 +1,27 @@
 package com.smartcampus.smart_campus_api.service;
 
+import java.io.IOException;
 import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.DayOfWeek;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.smartcampus.smart_campus_api.dto.AvailabilityWindowRequest;
 import com.smartcampus.smart_campus_api.dto.FacilityRequest;
@@ -29,6 +39,9 @@ import lombok.RequiredArgsConstructor;
 public class FacilityService {
 
     private final FacilityRepository facilityRepository;
+
+    @Value("${app.facility-upload-dir:uploads/facilities}")
+    private String facilityUploadDir;
 
     public List<Facility> findFacilities(
             FacilityType type,
@@ -97,6 +110,13 @@ public class FacilityService {
         return facilityRepository.save(facility);
     }
 
+    public Facility uploadFacilityImage(String id, MultipartFile file) {
+        Facility facility = getFacilityById(id);
+        facility.setImageUrl(storeImage(file, facilityUploadDir, id));
+        facility.setUpdatedAt(LocalDateTime.now());
+        return facilityRepository.save(facility);
+    }
+
     public void deleteFacility(String id) {
         if (!facilityRepository.existsById(id)) {
             throw new NoSuchElementException("Facility not found");
@@ -157,5 +177,41 @@ public class FacilityService {
 
     private boolean containsIgnoreCase(String value, String normalizedSearch) {
         return value != null && value.toLowerCase(Locale.ROOT).contains(normalizedSearch);
+    }
+
+    private String storeImage(MultipartFile file, String uploadDir, String entityId) {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please select an image to upload");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only image files are allowed");
+        }
+
+        String extension = extractExtension(file.getOriginalFilename());
+        String fileName = entityId + "-" + UUID.randomUUID() + extension;
+        Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+
+        try {
+            Files.createDirectories(uploadPath);
+            Files.copy(file.getInputStream(), uploadPath.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to store image", exception);
+        }
+
+        return "/uploads/facilities/" + fileName;
+    }
+
+    private String extractExtension(String fileName) {
+        if (fileName == null || fileName.isBlank() || !fileName.contains(".")) {
+            return ".png";
+        }
+
+        String extension = fileName.substring(fileName.lastIndexOf('.')).toLowerCase(Locale.ROOT);
+        return switch (extension) {
+            case ".jpg", ".jpeg", ".png", ".gif", ".webp" -> extension;
+            default -> ".png";
+        };
     }
 }

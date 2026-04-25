@@ -6,6 +6,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.smartcampus.smart_campus_api.dto.FacilityRequest;
 import com.smartcampus.smart_campus_api.dto.FacilityStatusUpdateRequest;
@@ -149,6 +151,28 @@ public class FacilityController {
 
         try {
             return ResponseEntity.ok(facilityService.updateFacilityStatus(id, request.getStatus()));
+        } catch (NoSuchElementException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", exception.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadFacilityImage(
+            @PathVariable String id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal Object principal) {
+
+        Optional<User> currentUser = resolveCurrentUser(principal);
+        if (currentUser.isEmpty()) {
+            return unauthorized();
+        }
+
+        if (!isAdmin(currentUser.get())) {
+            return forbidden("Only admins can upload facility images");
+        }
+
+        try {
+            return ResponseEntity.ok(facilityService.uploadFacilityImage(id, file));
         } catch (NoSuchElementException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", exception.getMessage()));
         }

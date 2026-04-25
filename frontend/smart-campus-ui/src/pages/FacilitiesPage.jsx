@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import EmptyState from '../components/ui/EmptyState'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import StatusBadge from '../components/ui/StatusBadge'
+import { API_BASE_URL } from '../config/env'
 import { useAuth } from '../hooks/useAuth'
 import { facilityService } from '../services/facilityService'
 import { resourceService } from '../services/resourceService'
@@ -12,12 +13,29 @@ const facilityTypes = ['LECTURE_HALL', 'LAB', 'MEETING_ROOM', 'EQUIPMENT']
 const facilityStatuses = ['ACTIVE', 'OUT_OF_SERVICE']
 const daysOfWeek = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 const filterDebounceMs = 300
+const maxCapacity = 250
+
+const lectureHallsByBuilding = {
+  'Main Building': ['A401', 'A402', 'A403', 'A405', 'A502', 'B201', 'B403', 'B501'],
+  'New Building': ['F301', 'F304', 'F503', 'F603', 'F204', 'F704', 'G201', 'G305', 'G1303', 'G406', 'G706'],
+}
+
+const buildingOptions = Object.keys(lectureHallsByBuilding)
+
+function defaultBuilding() {
+  return buildingOptions[0]
+}
+
+function defaultHallForBuilding(building) {
+  return lectureHallsByBuilding[building]?.[0] || ''
+}
 
 const emptyFormState = {
   name: '',
   type: 'LECTURE_HALL',
   capacity: '',
-  location: '',
+  building: defaultBuilding(),
+  location: defaultHallForBuilding(defaultBuilding()),
   status: 'ACTIVE',
   description: '',
   availabilityWindows: [{ dayOfWeek: 'MONDAY', startTime: '08:00', endTime: '17:00' }],
@@ -38,11 +56,14 @@ function statusTone(status) {
 }
 
 function mapFacilityToFormState(facility) {
+  const { building, hall } = parseLocationSelection(facility.location)
+
   return {
     name: facility.name ?? '',
     type: facility.type ?? 'LECTURE_HALL',
     capacity: facility.capacity ? String(facility.capacity) : '',
-    location: facility.location ?? '',
+    building,
+    location: hall,
     status: facility.status ?? 'ACTIVE',
     description: facility.description ?? '',
     availabilityWindows: (facility.availabilityWindows?.length
@@ -53,6 +74,45 @@ function mapFacilityToFormState(facility) {
       startTime: window.startTime ?? '08:00',
       endTime: window.endTime ?? '17:00',
     })),
+  }
+}
+
+function parseLocationSelection(rawLocation) {
+  const location = String(rawLocation || '').trim()
+  const availableBuildings = Object.keys(lectureHallsByBuilding)
+  const fallbackBuilding = availableBuildings[0]
+
+  if (!location) {
+    return {
+      building: fallbackBuilding,
+      hall: defaultHallForBuilding(fallbackBuilding),
+    }
+  }
+
+  // Support common persisted formats: "Building - Hall", "Building-Hall", "Building: Hall".
+  const splitMatch = location.split(/\s*[-:]\s*/)
+  if (splitMatch.length >= 2) {
+    const candidateBuilding = splitMatch[0]
+    const candidateHall = splitMatch.slice(1).join('-')
+    if (lectureHallsByBuilding[candidateBuilding]?.includes(candidateHall)) {
+      return {
+        building: candidateBuilding,
+        hall: candidateHall,
+      }
+    }
+  }
+
+  const matchedBuilding = availableBuildings.find((building) => lectureHallsByBuilding[building].includes(location))
+  if (matchedBuilding) {
+    return {
+      building: matchedBuilding,
+      hall: location,
+    }
+  }
+
+  return {
+    building: fallbackBuilding,
+    hall: defaultHallForBuilding(fallbackBuilding),
   }
 }
 
@@ -112,6 +172,17 @@ function formatResourceAvailability(resource) {
   return resource.sourceType === 'Resource' ? 'Resource record' : 'No availability windows'
 }
 
+function resolveImageUrl(imageUrl) {
+  if (!imageUrl) return ''
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl
+  return `${API_BASE_URL}${imageUrl}`
+}
+
+function createImagePreview(file) {
+  if (!file) return ''
+  return URL.createObjectURL(file)
+}
+
 export default function FacilitiesPage() {
   const { roles } = useAuth()
   const [filters, setFilters] = useState({
@@ -128,6 +199,8 @@ export default function FacilitiesPage() {
   const [openForm, setOpenForm] = useState(false)
   const [editingFacilityId, setEditingFacilityId] = useState(null)
   const [formState, setFormState] = useState(emptyFormState)
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState('')
   const [saving, setSaving] = useState(false)
 
   const role = useMemo(() => {
@@ -181,12 +254,16 @@ export default function FacilitiesPage() {
   const openCreateForm = () => {
     setEditingFacilityId(null)
     setFormState(emptyFormState)
+    setImageFile(null)
+    setImagePreview('')
     setOpenForm(true)
   }
 
   const openEditFormFor = (facility) => {
     setEditingFacilityId(facility.id)
     setFormState(mapFacilityToFormState(facility))
+    setImageFile(null)
+    setImagePreview(resolveImageUrl(facility.imageUrl) || '')
     setOpenForm(true)
   }
 
@@ -195,10 +272,36 @@ export default function FacilitiesPage() {
     setSaving(false)
     setEditingFacilityId(null)
     setFormState(emptyFormState)
+    setImageFile(null)
+    setImagePreview('')
   }
 
   const handleFormFieldChange = (field, value) => {
     setFormState((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleBuildingChange = (building) => {
+    setFormState((current) => ({
+      ...current,
+      building,
+      location: defaultHallForBuilding(building),
+    }))
+  }
+
+  const handleImageChange = (file) => {
+    setImageFile(file || null)
+
+    setImagePreview((currentPreview) => {
+      if (currentPreview && currentPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(currentPreview)
+      }
+
+      if (!file) {
+        return ''
+      }
+
+      return createImagePreview(file)
+    })
   }
 
   const handleWindowChange = (index, field, value) => {
@@ -230,7 +333,7 @@ export default function FacilitiesPage() {
     name: formState.name.trim(),
     type: formState.type,
     capacity: Number(formState.capacity),
-    location: formState.location.trim(),
+    location: `${formState.building} - ${formState.location}`,
     status: formState.status,
     description: formState.description.trim() || null,
     availabilityWindows: formState.availabilityWindows.map((window) => ({
@@ -240,18 +343,53 @@ export default function FacilitiesPage() {
     })),
   })
 
+  const validateFacilityForm = () => {
+    if (!/^[A-Za-z\s]+$/.test(formState.name.trim())) {
+      return 'Facility name should contain letters and spaces only.'
+    }
+
+    const numericCapacity = Number(formState.capacity)
+    if (!Number.isFinite(numericCapacity) || numericCapacity < 1) {
+      return 'Capacity must be at least 1.'
+    }
+
+    if (numericCapacity > maxCapacity) {
+      return `Capacity cannot exceed ${maxCapacity}.`
+    }
+
+    if (!formState.building || !formState.location) {
+      return 'Please select a building and lecture hall.'
+    }
+
+    return ''
+  }
+
   const handleSaveFacility = async (event) => {
     event.preventDefault()
     setSaving(true)
     setError('')
 
+    const validationError = validateFacilityForm()
+    if (validationError) {
+      setError(validationError)
+      setSaving(false)
+      return
+    }
+
     try {
       const payload = buildPayload()
+      let savedFacility
+
       if (editingFacilityId) {
-        await facilityService.updateFacility(editingFacilityId, payload)
+        savedFacility = await facilityService.updateFacility(editingFacilityId, payload)
       } else {
-        await facilityService.createFacility(payload)
+        savedFacility = await facilityService.createFacility(payload)
       }
+
+      if (imageFile && savedFacility?.id) {
+        await facilityService.uploadFacilityImage(savedFacility.id, imageFile)
+      }
+
       closeForm()
       await loadCatalogue(filters)
     } catch (requestError) {
@@ -285,6 +423,53 @@ export default function FacilitiesPage() {
       setError(requestError?.response?.data?.error || 'Failed to update facility status.')
     }
   }
+
+  const handleUploadImage = async (facility, file) => {
+    if (!file) return
+
+    setError('')
+    try {
+      if (facility.sourceType === 'Resource') {
+        await resourceService.uploadResourceImage(facility.id, file)
+      } else {
+        await facilityService.uploadFacilityImage(facility.id, file)
+      }
+      await loadCatalogue(filters)
+    } catch (requestError) {
+      setError(requestError?.response?.data?.error || 'Failed to upload image.')
+    }
+  }
+
+  useEffect(() => () => {
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
+
+  const availableLectureHalls = useMemo(() => {
+    if (lectureHallsByBuilding[formState.building]?.length) {
+      return lectureHallsByBuilding[formState.building]
+    }
+
+    const fallback = defaultBuilding()
+    return lectureHallsByBuilding[fallback] || []
+  }, [formState.building])
+
+  useEffect(() => {
+    const nextBuilding = lectureHallsByBuilding[formState.building] ? formState.building : defaultBuilding()
+    const hallsForBuilding = lectureHallsByBuilding[nextBuilding] || []
+    const nextHall = hallsForBuilding.includes(formState.location)
+      ? formState.location
+      : (hallsForBuilding[0] || '')
+
+    if (nextBuilding !== formState.building || nextHall !== formState.location) {
+      setFormState((current) => ({
+        ...current,
+        building: nextBuilding,
+        location: nextHall,
+      }))
+    }
+  }, [formState.building, formState.location])
 
   const displayFacilities = useMemo(
     () => facilities.map((facility) => normalizeDisplayItem(facility, 'Facility')),
@@ -441,64 +626,96 @@ export default function FacilitiesPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04 }}
-                className="glass-panel p-5"
+                className="glass-panel overflow-hidden p-0"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-display text-xl font-bold text-slate-900">{facility.name}</h3>
-                    <p className="mt-1 text-sm font-medium text-slate-500">
-                      {prettyLabel(facility.type)} - {facility.capacity} capacity
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">{facility.location}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <StatusBadge tone={statusTone(facility.status)}>{prettyLabel(facility.status)}</StatusBadge>
-                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <div className="relative h-44 overflow-hidden bg-slate-100">
+                  {resolveImageUrl(facility.imageUrl) ? (
+                    <img src={resolveImageUrl(facility.imageUrl)} alt={facility.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400">
+                      <div className="text-center">
+                        <Building2 className="mx-auto h-10 w-10" />
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-wider">No image added</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute left-4 top-4 flex gap-2">
+                    <span className="rounded-full bg-slate-900/70 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur">
                       {facility.sourceType}
                     </span>
+                    <StatusBadge tone={statusTone(facility.status)}>{prettyLabel(facility.status)}</StatusBadge>
                   </div>
                 </div>
 
-                {facility.description ? (
-                  <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    {facility.description}
-                  </p>
-                ) : null}
-
-                <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Availability</p>
-                  <div className="mt-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
-                    {formatResourceAvailability(facility)}
+                <div className="p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-xl font-bold text-slate-900">{facility.name}</h3>
+                      <p className="mt-1 text-sm font-medium text-slate-500">
+                        {prettyLabel(facility.type)} - {facility.capacity} capacity
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">{facility.location}</p>
+                    </div>
                   </div>
-                </div>
 
-                {canManageFacilities && facility.sourceType === 'Facility' ? (
+                  {facility.description ? (
+                    <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                      {facility.description}
+                    </p>
+                  ) : null}
+
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Availability</p>
+                    <div className="mt-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+                      {formatResourceAvailability(facility)}
+                    </div>
+                  </div>
+
+                  {canManageFacilities ? (
                   <div className="mt-5 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEditFormFor(facility)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleStatus(facility)}
-                      className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
-                    >
-                      Mark {facility.status === 'ACTIVE' ? 'Out of Service' : 'Active'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteFacility(facility.id)}
-                      className="soft-delete-button px-3 py-1.5"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </button>
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
+                      Upload Image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0]
+                          handleUploadImage(facility, file)
+                          event.target.value = ''
+                        }}
+                      />
+                    </label>
+                    {facility.sourceType === 'Facility' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openEditFormFor(facility)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(facility)}
+                          className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+                        >
+                          Mark {facility.status === 'ACTIVE' ? 'Out of Service' : 'Active'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteFacility(facility.id)}
+                          className="soft-delete-button px-3 py-1.5"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </>
+                    ) : null}
                   </div>
-                ) : null}
+                  ) : null}
+                </div>
               </motion.article>
             ))}
           </div>
@@ -507,7 +724,7 @@ export default function FacilitiesPage() {
 
       {openForm ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+          <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h3 className="font-display text-xl font-bold text-slate-900">
@@ -526,7 +743,7 @@ export default function FacilitiesPage() {
               </button>
             </div>
 
-            <form className="space-y-4" onSubmit={handleSaveFacility}>
+            <form className="flex-1 space-y-4 overflow-y-auto pr-1" onSubmit={handleSaveFacility}>
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Name</span>
@@ -534,7 +751,8 @@ export default function FacilitiesPage() {
                     required
                     type="text"
                     value={formState.name}
-                    onChange={(event) => handleFormFieldChange('name', event.target.value)}
+                    onChange={(event) => handleFormFieldChange('name', event.target.value.replace(/\d/g, ''))}
+                    placeholder="Letters only"
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
                   />
                 </label>
@@ -557,22 +775,43 @@ export default function FacilitiesPage() {
                   <input
                     required
                     min="1"
+                    max={maxCapacity}
                     type="number"
                     value={formState.capacity}
                     onChange={(event) => handleFormFieldChange('capacity', event.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
                   />
+                  <p className="mt-1 text-xs text-slate-500">Maximum capacity is {maxCapacity}.</p>
                 </label>
 
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Location</span>
-                  <input
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Building</span>
+                  <select
                     required
-                    type="text"
+                    value={formState.building}
+                    onChange={(event) => handleBuildingChange(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+                  >
+                    {buildingOptions.map((building) => (
+                      <option key={building} value={building}>{building}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Lecture Hall</span>
+                  <select
+                    key={formState.building}
+                    required
                     value={formState.location}
                     onChange={(event) => handleFormFieldChange('location', event.target.value)}
+                    disabled={!availableLectureHalls.length}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
-                  />
+                  >
+                    {availableLectureHalls.map((hall) => (
+                      <option key={hall} value={hall}>{hall}</option>
+                    ))}
+                  </select>
                 </label>
 
                 <label className="block md:col-span-2">
@@ -597,6 +836,37 @@ export default function FacilitiesPage() {
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
                   />
                 </label>
+
+                <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800">Facility Image</h4>
+                      <p className="mt-1 text-xs text-slate-500">Upload a photo that users will see in the catalogue.</p>
+                    </div>
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
+                      Choose Image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event) => handleImageChange(event.target.files?.[0])}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Selected facility preview" className="h-40 w-full object-cover" />
+                    ) : (
+                      <div className="flex h-40 items-center justify-center text-center text-slate-400">
+                        <div>
+                          <Building2 className="mx-auto h-10 w-10" />
+                          <p className="mt-2 text-xs font-semibold uppercase tracking-wider">No image selected</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
