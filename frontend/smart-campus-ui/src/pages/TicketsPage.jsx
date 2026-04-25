@@ -188,6 +188,15 @@ export default function TicketsPage() {
       return
     }
 
+    const contactInfo = form.contactInformation.trim()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const phoneRegex = /^\+?[0-9\s\-\(\)]{7,15}$/
+
+    if (!emailRegex.test(contactInfo) && !phoneRegex.test(contactInfo)) {
+      setError('Please enter a valid email address or phone number.')
+      return
+    }
+
     setSubmitting(true)
     try {
       await ticketService.createTicket({
