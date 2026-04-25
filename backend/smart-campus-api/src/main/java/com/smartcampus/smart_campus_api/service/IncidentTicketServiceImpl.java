@@ -3,8 +3,19 @@ package com.smartcampus.smart_campus_api.service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.Locale;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.io.IOException;
 
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.smartcampus.smart_campus_api.dto.AssignTechnicianRequest;
 import com.smartcampus.smart_campus_api.dto.CreateIncidentTicketRequest;
@@ -32,6 +43,9 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
     private final UserAuthorizationService userAuthorizationService;
     private final NotificationTriggerService notificationTriggerService;
     private final UserRepository userRepository;
+
+    @Value("${app.ticket-upload-dir:uploads/tickets}")
+    private String ticketUploadDir;
 
     @Override
     public List<IncidentTicketResponse> getTickets(Object principal) {
@@ -204,6 +218,56 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
         return toResponse(saved, findReporter(saved.getReporterId()));
     }
 
+    @Override
+    public List<String> uploadAttachments(Object principal, List<MultipartFile> files) {
+        User user = userAuthorizationService.requireAuthenticatedUser(principal);
+        userAuthorizationService.requireAnyRole(user, "USER", "ADMIN", "TECHNICIAN", "MANAGER");
+
+        if (files == null || files.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please select images to upload");
+        }
+
+        if (files.size() > 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only up to 3 attachments are allowed");
+        }
+
+        Path uploadPath = Paths.get(ticketUploadDir).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(uploadPath);
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to prepare upload directory", exception);
+        }
+
+        List<String> uploadedUrls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+
+            String contentType = file.getContentType();
+            if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only image files are allowed");
+            }
+
+            if (file.getSize() > 5 * 1024 * 1024) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Each attachment must be <= 5MB");
+            }
+
+            String extension = extractImageExtension(file.getOriginalFilename());
+            String fileName = user.getId() + "-" + UUID.randomUUID() + extension;
+
+            try {
+                Files.copy(file.getInputStream(), uploadPath.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException exception) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to store attachment", exception);
+            }
+
+            uploadedUrls.add("/uploads/tickets/" + fileName);
+        }
+
+        return uploadedUrls.stream().limit(3).toList();
+    }
+
     private IncidentTicket findTicketOrThrow(String ticketId) {
         return incidentTicketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found for id: " + ticketId));
@@ -285,5 +349,17 @@ public class IncidentTicketServiceImpl implements IncidentTicketService {
             return null;
         }
         return value.trim();
+    }
+
+    private String extractImageExtension(String fileName) {
+        if (fileName == null || fileName.isBlank() || !fileName.contains(".")) {
+            return ".png";
+        }
+
+        String extension = fileName.substring(fileName.lastIndexOf('.')).toLowerCase(Locale.ROOT);
+        return switch (extension) {
+            case ".jpg", ".jpeg", ".png", ".gif", ".webp" -> extension;
+            default -> ".png";
+        };
     }
 }
