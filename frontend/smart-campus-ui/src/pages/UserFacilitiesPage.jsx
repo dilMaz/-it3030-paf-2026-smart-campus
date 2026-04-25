@@ -18,7 +18,7 @@ import { Link } from 'react-router-dom'
 import EmptyState from '../components/ui/EmptyState'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import StatusBadge from '../components/ui/StatusBadge'
-import { resourceService } from '../services/resourceService'
+import { facilityService } from '../services/facilityService'
 
 const RESOURCE_TYPES = [
   { value: 'LECTURE_HALL', label: 'Lecture Halls' },
@@ -192,7 +192,7 @@ export default function UserFacilitiesPage() {
       setError('')
 
       try {
-        const data = await resourceService.getAll()
+        const data = await facilityService.getFacilities()
         if (active) {
           setResources(Array.isArray(data) ? data : [])
         }
