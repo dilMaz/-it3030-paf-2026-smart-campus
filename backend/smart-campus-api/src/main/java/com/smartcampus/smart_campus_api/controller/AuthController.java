@@ -51,7 +51,6 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174"}, allowCredentials = "true")
-@SuppressWarnings("null")
 public class AuthController {
 
     private static final String DUMMY_BCRYPT_HASH = "$2a$10$7EqJtq98hPqEX7fNZaFWoOeR6Y7BoM4n5v1T7bGTFeoJq6Digw1u6";

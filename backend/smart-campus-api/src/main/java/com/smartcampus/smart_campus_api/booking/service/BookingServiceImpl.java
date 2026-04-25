@@ -24,7 +24,6 @@ import lombok.RequiredArgsConstructor;
 // Service implementation for booking business logic and conflict detection
 @Service
 @RequiredArgsConstructor
-@SuppressWarnings("null")
 public class BookingServiceImpl implements BookingService {
 
     private final BookingRepository bookingRepository;

@@ -36,7 +36,6 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-@SuppressWarnings("null")
 public class IncidentTicketServiceImpl implements IncidentTicketService {
 
     private final IncidentTicketRepository incidentTicketRepository;
