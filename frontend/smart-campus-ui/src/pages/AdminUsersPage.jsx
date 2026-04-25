@@ -4,10 +4,32 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import Skeleton from '../components/ui/Skeleton'
 import StatusBadge from '../components/ui/StatusBadge'
+import Modal from '../components/ui/Modal'
 import { AUTH_USER_STORAGE_KEY } from '../constants/authStorage'
 import api from '../services/api'
 
 const roleOptions = ['USER', 'ADMIN', 'TECHNICIAN', 'MANAGER']
+const TECHNICIAN_TYPE_STORAGE_KEY = 'smartCampusTechnicianTypes'
+
+function loadTechnicianTypes() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(TECHNICIAN_TYPE_STORAGE_KEY) || '[]')
+    return Array.isArray(stored) ? stored.filter((value) => typeof value === 'string' && value.trim()) : []
+  } catch {
+    return []
+  }
+}
+
+function saveTechnicianType(value) {
+  const next = String(value || '').trim()
+  if (!next) return
+
+  const existing = loadTechnicianTypes()
+  const normalized = next.toLowerCase()
+  const withoutDupes = existing.filter((item) => item.toLowerCase() !== normalized)
+  const merged = [next, ...withoutDupes].slice(0, 15)
+  localStorage.setItem(TECHNICIAN_TYPE_STORAGE_KEY, JSON.stringify(merged))
+}
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([])
@@ -15,6 +37,10 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [savingUserId, setSavingUserId] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [userToDelete, setUserToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [technicianTypes, setTechnicianTypes] = useState(() => loadTechnicianTypes())
+  const [technicianModal, setTechnicianModal] = useState({ open: false, userId: '', role: 'TECHNICIAN', value: '' })
 
   const currentUser = useMemo(() => {
     try {
@@ -64,6 +90,27 @@ export default function AdminUsersPage() {
     }
   }, [])
 
+  const requestRoleUpdate = (userId, payload) => {
+    setSavingUserId(userId)
+    setError('')
+
+    api.patch(`/api/auth/users/${userId}/role`, payload)
+      .then((response) => {
+        setUsers((current) => current.map((u) => (
+          u.id === userId ? response.data : u
+        )))
+        toast.success(`Role updated to ${payload.role}`)
+      })
+      .catch((requestError) => {
+        const errorMsg = requestError?.response?.data?.error || requestError?.response?.data?.message || 'Unable to update user role.'
+        setError(errorMsg)
+        toast.error(errorMsg)
+      })
+      .finally(() => {
+        setSavingUserId('')
+      })
+  }
+
   const updateRole = (userId, newRole) => {
     const user = users.find((u) => u.id === userId)
     if (!user) return
@@ -71,27 +118,50 @@ export default function AdminUsersPage() {
     const currentRole = Array.isArray(user.roles) && user.roles.length > 0 ? user.roles[0] : 'USER'
     if (currentRole === newRole) return
 
-    setSavingUserId(userId)
-    setError('')
+    if (newRole === 'TECHNICIAN') {
+      setTechnicianModal({
+        open: true,
+        userId,
+        role: newRole,
+        value: user.technicianType || '',
+      })
+      return
+    }
 
-    api.patch(
-      `/api/auth/users/${userId}/role`,
-      { role: newRole },
-    )
-      .then((response) => {
-        setUsers((current) => current.map((u) => (
-          u.id === userId ? response.data : u
-        )))
-        toast.success(`Role updated to ${newRole}`)
+    requestRoleUpdate(userId, { role: newRole })
+  }
+
+  const confirmTechnicianType = () => {
+    const value = technicianModal.value.trim()
+    if (!value) {
+      setError('Technician type is required.')
+      toast.error('Technician type is required.')
+      return
+    }
+
+    saveTechnicianType(value)
+    setTechnicianTypes(loadTechnicianTypes())
+    requestRoleUpdate(technicianModal.userId, { role: 'TECHNICIAN', technicianType: value })
+    setTechnicianModal({ open: false, userId: '', role: 'TECHNICIAN', value: '' })
+  }
+
+  const confirmDelete = () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+
+    api.delete(`/api/auth/users/${userToDelete.id}`)
+      .then(() => {
+        setUsers((current) => current.filter((u) => u.id !== userToDelete.id));
+        toast.success('User deleted successfully');
+        setUserToDelete(null);
       })
       .catch((requestError) => {
-        const errorMsg = requestError?.response?.data?.error || 'Unable to update user role.'
-        setError(errorMsg)
-        toast.error(errorMsg)
+        const errorMsg = requestError?.response?.data?.error || 'Unable to delete user.';
+        toast.error(errorMsg);
       })
       .finally(() => {
-        setSavingUserId('')
-      })
+        setIsDeleting(false);
+      });
   }
 
   const filteredUsers = useMemo(() => {
@@ -215,6 +285,11 @@ export default function AdminUsersPage() {
                       <StatusBadge tone={role === 'ADMIN' ? 'info' : role === 'TECHNICIAN' ? 'pending' : role === 'MANAGER' ? 'error' : 'success'}>
                         {role}
                       </StatusBadge>
+                      {role === 'TECHNICIAN' && user.technicianType ? (
+                        <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                          {user.technicianType}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center gap-2 justify-end">
@@ -246,13 +321,8 @@ export default function AdminUsersPage() {
                               </div>
                             </div>
                             <button
-                              className="ml-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-100"
-                              onClick={() => {
-                                if (window.confirm('Are you sure you want to delete this user?')) {
-                                  // Implement delete logic here
-                                  toast('Delete user feature not implemented')
-                                }
-                              }}
+                              className="ml-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              onClick={() => setUserToDelete(user)}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                               Delete
@@ -268,11 +338,68 @@ export default function AdminUsersPage() {
           </table>
         </div>
         
-        {/* Footer */}
         <div className="border-t border-slate-200 bg-slate-50/50 p-4 text-center text-xs font-medium text-slate-500">
           Showing {filteredUsers.length} users
         </div>
       </div>
+
+      <Modal
+        isOpen={!!userToDelete}
+        onClose={() => setUserToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Delete User"
+        message={`Are you sure you want to delete ${userToDelete?.name || 'this user'}? This action cannot be undone.`}
+        confirmText="Delete User"
+        cancelText="Cancel"
+        isDestructive={true}
+        isLoading={isDeleting}
+      />
+      {technicianModal.open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Technician Details</p>
+              <h3 className="mt-1 font-display text-2xl font-bold text-slate-900">Set technician type</h3>
+              <p className="mt-1 text-sm text-slate-600">Type a category (e.g. Electrical, Plumbing, IT Support). Previous entries will appear as suggestions.</p>
+            </div>
+
+            <div className="space-y-4 px-6 py-5">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Technician type</span>
+                <input
+                  value={technicianModal.value}
+                  onChange={(event) => setTechnicianModal((current) => ({ ...current, value: event.target.value }))}
+                  list="technician-type-suggestions"
+                  placeholder="e.g. Network, CCTV, Electrical..."
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+                />
+                <datalist id="technician-type-suggestions">
+                  {technicianTypes.map((item) => (
+                    <option key={item} value={item} />
+                  ))}
+                </datalist>
+              </label>
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setTechnicianModal({ open: false, userId: '', role: 'TECHNICIAN', value: '' })}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmTechnicianType}
+                  className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+                >
+                  Save & Assign Technician Role
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

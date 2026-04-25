@@ -3,17 +3,37 @@ import AppShell from './components/layout/AppShell'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import Dashboard from './pages/Dashboard'
+import TechnicianDashboard from './pages/TechnicianDashboard'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import NotificationsPage from './pages/NotificationsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
-import ResourceListPage from './pages/ResourceListPage'
+import FacilitiesPage from './pages/FacilitiesPage'
+import UserFacilitiesPage from './pages/UserFacilitiesPage'
 import BookingsPage from './pages/BookingsPage'
 import ProfilePage from './pages/ProfilePage'
 import AdminDashboard from './pages/AdminDashboard'
 import TicketsPage from './pages/TicketsPage'
+import { useAuth } from './hooks/useAuth'
+
+function DashboardRouter() {
+  const { roles } = useAuth()
+  const isTechnician = roles.includes('TECHNICIAN')
+
+  return isTechnician ? <TechnicianDashboard /> : <Dashboard />
+}
+
+function FacilitiesRouter() {
+  const { roles } = useAuth()
+
+  if (roles.includes('ADMIN')) {
+    return <FacilitiesPage />
+  }
+
+  return <UserFacilitiesPage />
+}
 
 function App() {
   return (
@@ -26,7 +46,7 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<DashboardRouter />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
 
@@ -39,8 +59,8 @@ function App() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'USER']} />}>
-              <Route path="/facilities" element={<ResourceListPage />} />
-              <Route path="/resources" element={<ResourceListPage />} />
+              <Route path="/facilities" element={<FacilitiesRouter />} />
+              <Route path="/resources" element={<FacilitiesRouter />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>

@@ -32,6 +32,16 @@ export const resourceService = {
     return response.data
   },
 
+  async uploadResourceImage(id, file) {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await api.post(`/api/resources/${id}/image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+
   async remove(id) {
     await api.delete(`/api/resources/${id}`)
   },

@@ -1,12 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, CheckCheck, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { notificationService } from '../../services/notificationService'
 import { toRelativeTime } from '../../utils/relativeTime'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
 export default function NotificationsDropdown({ open, onClose, onUnreadCountChange }) {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState([])
 
@@ -55,6 +57,30 @@ export default function NotificationsDropdown({ open, onClose, onUnreadCountChan
     }
   }
 
+  const handleNotificationClick = (notification) => {
+    if (!notification.read) {
+      markRead(notification.id)
+    }
+
+    if (onClose) {
+      onClose()
+    }
+
+    if (
+      notification.type === 'NEW_TICKET_CREATED' ||
+      notification.type === 'TICKET_UPDATED' ||
+      notification.type === 'COMMENT_ADDED'
+    ) {
+      navigate('/admin/tickets')
+    } else if (
+      notification.type === 'NEW_BOOKING_REQUEST' ||
+      notification.type === 'BOOKING_APPROVED' ||
+      notification.type === 'BOOKING_REJECTED'
+    ) {
+      navigate('/bookings')
+    }
+  }
+
   return (
     <AnimatePresence>
       {open ? (
@@ -92,7 +118,8 @@ export default function NotificationsDropdown({ open, onClose, onUnreadCountChan
             {!loading && items.map((notification) => (
               <div
                 key={notification.id}
-                className={`mb-2 rounded-xl border p-3 ${notification.read ? 'border-slate-200 bg-white' : 'border-blue-100 bg-blue-50/70'}`}
+                onClick={() => handleNotificationClick(notification)}
+                className={`mb-2 cursor-pointer rounded-xl border p-3 transition hover:bg-slate-50 ${notification.read ? 'border-slate-200 bg-white' : 'border-blue-100 bg-blue-50/70 hover:bg-blue-100/70'}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
@@ -107,11 +134,14 @@ export default function NotificationsDropdown({ open, onClose, onUnreadCountChan
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     {!notification.read ? (
                       <button
                         type="button"
-                        onClick={() => markRead(notification.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          markRead(notification.id)
+                        }}
                         className="rounded-md bg-emerald-500 p-1.5 text-white transition hover:bg-emerald-600"
                         title="Mark as read"
                       >
@@ -120,7 +150,10 @@ export default function NotificationsDropdown({ open, onClose, onUnreadCountChan
                     ) : null}
                     <button
                       type="button"
-                      onClick={() => remove(notification.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        remove(notification.id)
+                      }}
                       className="soft-delete-icon-button p-1.5"
                       title="Delete notification"
                     >

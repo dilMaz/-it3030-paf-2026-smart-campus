@@ -16,6 +16,7 @@ public class ResourceResponse {
     ResourceType type;
     Integer capacity;
     String location;
+    String imageUrl;
     LocalDateTime availableFrom;
     LocalDateTime availableTo;
     ResourceStatus status;

@@ -32,6 +32,16 @@ export const facilityService = {
     return response.data
   },
 
+  async uploadFacilityImage(id, file) {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await api.post(`/api/facilities/${id}/image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+
   async deleteFacility(id) {
     await api.delete(`/api/facilities/${id}`)
   },
