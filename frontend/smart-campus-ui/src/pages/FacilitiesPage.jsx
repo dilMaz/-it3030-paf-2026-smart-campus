@@ -14,6 +14,7 @@ const facilityStatuses = ['ACTIVE', 'OUT_OF_SERVICE']
 const daysOfWeek = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 const filterDebounceMs = 300
 const maxCapacity = 250
+const maxResourceDescriptionWords = 20
 
 const lectureHallsByBuilding = {
   'Main Building': ['A401', 'A402', 'A403', 'A405', 'A502', 'B201', 'B403', 'B501'],
@@ -192,6 +193,24 @@ function resolveImageUrl(imageUrl) {
 function createImagePreview(file) {
   if (!file) return ''
   return URL.createObjectURL(file)
+}
+
+function countWords(value) {
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return 0
+  return trimmed.split(/\s+/).length
+}
+
+function limitToWordCount(value, maxWords) {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+
+  const words = normalized.split(' ')
+  if (words.length <= maxWords) {
+    return normalized
+  }
+
+  return words.slice(0, maxWords).join(' ')
 }
 
 function toDateTimeLocalValue(value) {
@@ -515,6 +534,10 @@ export default function FacilitiesPage() {
 
     if (new Date(resourceFormState.availableFrom) >= new Date(resourceFormState.availableTo)) {
       return 'Available from must be before available to.'
+    }
+
+    if (countWords(resourceFormState.description) > maxResourceDescriptionWords) {
+      return `Description must be ${maxResourceDescriptionWords} words or fewer.`
     }
 
     return ''
@@ -1256,9 +1279,12 @@ export default function FacilitiesPage() {
                   <textarea
                     rows={3}
                     value={resourceFormState.description}
-                    onChange={(event) => handleResourceFormFieldChange('description', event.target.value)}
+                    onChange={(event) => handleResourceFormFieldChange('description', limitToWordCount(event.target.value, maxResourceDescriptionWords))}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
                   />
+                  <p className="mt-1 text-xs text-slate-500">
+                    {countWords(resourceFormState.description)} / {maxResourceDescriptionWords} words
+                  </p>
                 </label>
 
                 <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
