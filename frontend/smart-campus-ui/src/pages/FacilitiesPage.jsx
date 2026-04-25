@@ -259,6 +259,22 @@ export default function FacilitiesPage() {
   const [resourceImagePreview, setResourceImagePreview] = useState('')
   const [resourceSaving, setResourceSaving] = useState(false)
 
+  const minResourceAvailableFrom = toDateTimeLocalValue(new Date())
+  const minResourceAvailableTo = (() => {
+    const now = new Date()
+    const fromDate = resourceFormState.availableFrom ? new Date(resourceFormState.availableFrom) : null
+
+    if (fromDate && !Number.isNaN(fromDate.getTime()) && fromDate > now) {
+      const nextFrom = new Date(fromDate)
+      nextFrom.setMinutes(nextFrom.getMinutes() + 1)
+      return toDateTimeLocalValue(nextFrom)
+    }
+
+    const nextNow = new Date(now)
+    nextNow.setMinutes(nextNow.getMinutes() + 1)
+    return toDateTimeLocalValue(nextNow)
+  })()
+
   const role = useMemo(() => {
     if (roles.includes('ADMIN')) return 'ADMIN'
     if (roles.includes('TECHNICIAN')) return 'TECHNICIAN'
@@ -397,6 +413,26 @@ export default function FacilitiesPage() {
     setResourceFormState((current) => ({ ...current, [field]: value }))
   }
 
+  const handleResourceAvailableFromChange = (value) => {
+    setResourceFormState((current) => {
+      const next = { ...current, availableFrom: value }
+      const fromDate = value ? new Date(value) : null
+      const toDate = current.availableTo ? new Date(current.availableTo) : null
+
+      if (
+        fromDate &&
+        toDate &&
+        !Number.isNaN(fromDate.getTime()) &&
+        !Number.isNaN(toDate.getTime()) &&
+        toDate <= fromDate
+      ) {
+        next.availableTo = ''
+      }
+
+      return next
+    })
+  }
+
   const handleResourceImageChange = (file) => {
     setResourceImageFile(file || null)
 
@@ -532,7 +568,23 @@ export default function FacilitiesPage() {
       return 'Availability range is required.'
     }
 
-    if (new Date(resourceFormState.availableFrom) >= new Date(resourceFormState.availableTo)) {
+    const now = new Date()
+    const availableFromDate = new Date(resourceFormState.availableFrom)
+    const availableToDate = new Date(resourceFormState.availableTo)
+
+    if (Number.isNaN(availableFromDate.getTime()) || Number.isNaN(availableToDate.getTime())) {
+      return 'Please provide valid availability date and time values.'
+    }
+
+    if (availableFromDate < now) {
+      return 'Available from cannot be in the past.'
+    }
+
+    if (availableToDate <= now) {
+      return 'Available to must be in the future.'
+    }
+
+    if (availableFromDate >= availableToDate) {
       return 'Available from must be before available to.'
     }
 
@@ -1258,7 +1310,8 @@ export default function FacilitiesPage() {
                     required
                     type="datetime-local"
                     value={resourceFormState.availableFrom}
-                    onChange={(event) => handleResourceFormFieldChange('availableFrom', event.target.value)}
+                    min={minResourceAvailableFrom}
+                    onChange={(event) => handleResourceAvailableFromChange(event.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
                   />
                 </label>
@@ -1269,6 +1322,7 @@ export default function FacilitiesPage() {
                     required
                     type="datetime-local"
                     value={resourceFormState.availableTo}
+                    min={minResourceAvailableTo}
                     onChange={(event) => handleResourceFormFieldChange('availableTo', event.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
                   />
