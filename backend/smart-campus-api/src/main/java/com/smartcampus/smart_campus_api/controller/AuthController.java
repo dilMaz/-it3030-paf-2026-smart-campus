@@ -234,8 +234,31 @@ public class AuthController {
         User user = optionalUser.get();
         user.setRoles(List.of(newRole));
         userRepository.save(user);
-
         return ResponseEntity.ok(user);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/users/{id}")
+    public ResponseEntity<?> deleteUser(
+            @PathVariable String id,
+            @AuthenticationPrincipal Object principal) {
+
+        User currentUser = userAuthorizationService.requireAuthenticatedUser(principal);
+        if (!isAdmin(currentUser)) {
+            throw new ForbiddenOperationException("Only admins can delete users");
+        }
+
+        if (currentUser.getId() != null && currentUser.getId().equals(id)) {
+            throw new ForbiddenOperationException("Admin cannot delete their own account");
+        }
+
+        Optional<User> optionalUser = userRepository.findById(id);
+        if (optionalUser.isEmpty()) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
+        userRepository.deleteById(id);
+
+        return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
     }
 
     @PostMapping("/logout")

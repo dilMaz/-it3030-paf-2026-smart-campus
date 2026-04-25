@@ -84,7 +84,10 @@ public class BookingServiceImpl implements BookingService {
         booking.setStatus(BookingStatus.PENDING);
         booking.setCreatedAt(LocalDateTime.now());
 
-        return toResponse(bookingRepository.save(booking));
+        Booking savedBooking = bookingRepository.save(booking);
+        notificationTriggerService.handleNewBookingRequest(savedBooking);
+
+        return toResponse(savedBooking);
     }
 
     // Approve pending booking and send notification

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { Bell } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { notificationService } from '../../services/notificationService'
 import NotificationPanel from './NotificationPanel'
@@ -16,6 +16,38 @@ export default function NotificationBell() {
     () => notifications.filter((notification) => !notification.read).length,
     [notifications],
   )
+
+  const previousUnreadCount = useRef(unreadCount)
+
+  const playNotificationSound = () => {
+    try {
+      const context = new (window.AudioContext || window.webkitAudioContext)()
+      const oscillator = context.createOscillator()
+      const gainNode = context.createGain()
+      
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(880, context.currentTime) // A5
+      oscillator.frequency.exponentialRampToValueAtTime(440, context.currentTime + 0.1)
+      
+      gainNode.gain.setValueAtTime(0.1, context.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.1)
+      
+      oscillator.connect(gainNode)
+      gainNode.connect(context.destination)
+      
+      oscillator.start()
+      oscillator.stop(context.currentTime + 0.1)
+    } catch {
+      // Ignore audio errors
+    }
+  }
+
+  useEffect(() => {
+    if (unreadCount > previousUnreadCount.current) {
+      playNotificationSound()
+    }
+    previousUnreadCount.current = unreadCount
+  }, [unreadCount])
 
   const loadNotifications = async ({ silent = false } = {}) => {
     if (!silent) {
