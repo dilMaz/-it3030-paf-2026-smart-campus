@@ -1,13 +1,18 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, KeyRound, Mail, Zap, Loader2 } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, KeyRound, Mail, Zap, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { authService } from '../services/authService'
+import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY, POST_LOGIN_STORAGE_KEY } from '../constants/authStorage'
+import { getAuthErrorMessage } from '../utils/authError'
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -17,20 +22,44 @@ export default function LoginPage() {
   const from = location.state?.from?.pathname || '/dashboard'
 
   const handleGoogleLogin = () => {
-    localStorage.removeItem('smartCampusUser')
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY)
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
+    sessionStorage.setItem(POST_LOGIN_STORAGE_KEY, from)
     window.location.href = authService.getGoogleLoginUrl()
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    if (loading) {
+      return
+    }
+
     setError('')
+
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) {
+      setError('Email is required')
+      return
+    }
+
+    if (!EMAIL_PATTERN.test(trimmedEmail)) {
+      setError('Please enter a valid email address')
+      return
+    }
+
+    if (!password) {
+      setError('Password is required')
+      return
+    }
+
     setLoading(true)
 
     try {
-      await login(email, password)
+      await login({ email: trimmedEmail, password })
       navigate(from, { replace: true })
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to login')
+      setError(getAuthErrorMessage(err, 'Failed to login'))
     } finally {
       setLoading(false)
     }
@@ -59,7 +88,12 @@ export default function LoginPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="mt-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 shadow-sm">
+                <div
+                  id="login-form-error"
+                  role="alert"
+                  aria-live="polite"
+                  className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 shadow-sm"
+                >
                   {error}
                 </div>
               )}
@@ -77,6 +111,8 @@ export default function LoginPage() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      aria-invalid={!!error}
+                      aria-describedby={error ? 'login-form-error' : undefined}
                       className="block w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                       placeholder="you@university.edu"
                     />
@@ -96,13 +132,23 @@ export default function LoginPage() {
                     <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <input
                       id="password"
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      aria-invalid={!!error}
+                      aria-describedby={error ? 'login-form-error' : undefined}
+                      className="block w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-12 text-sm font-medium text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                       placeholder="••••••••"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((current) => !current)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
               </div>

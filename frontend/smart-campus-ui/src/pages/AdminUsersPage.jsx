@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import Skeleton from '../components/ui/Skeleton'
 import StatusBadge from '../components/ui/StatusBadge'
+import { AUTH_USER_STORAGE_KEY } from '../constants/authStorage'
 import api from '../services/api'
 
 const roleOptions = ['USER', 'ADMIN', 'TECHNICIAN', 'MANAGER']
@@ -17,7 +18,7 @@ export default function AdminUsersPage() {
 
   const currentUser = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('smartCampusUser') || 'null')
+      return JSON.parse(localStorage.getItem(AUTH_USER_STORAGE_KEY) || 'null')
     } catch {
       return null
     }
@@ -216,33 +217,49 @@ export default function AdminUsersPage() {
                       </StatusBadge>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {isCurrentUser ? (
-                        <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200/50">
-                          <Check className="h-3.5 w-3.5" /> Active Session
-                        </div>
-                      ) : (
-                        <div className="relative inline-block w-40 text-left">
-                          <select
-                            value={role}
-                            disabled={isSaving}
-                            onChange={(event) => updateRole(user.id, event.target.value)}
-                            className="block w-full appearance-none rounded-xl border border-slate-300 bg-white py-2 pl-4 pr-10 text-sm font-semibold text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
-                          >
-                            {roleOptions.map((option) => (
-                              <option key={option} value={option}>
-                                Make {option}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                            {isSaving ? (
-                              <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-slate-400" />
-                            )}
+                      <div className="flex items-center gap-2 justify-end">
+                        {isCurrentUser ? (
+                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200/50">
+                            <Check className="h-3.5 w-3.5" /> Active Session
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <>
+                            <div className="relative inline-block w-32 text-left">
+                              <select
+                                value={role}
+                                disabled={isSaving}
+                                onChange={(event) => updateRole(user.id, event.target.value)}
+                                className="block w-full appearance-none rounded-xl border border-slate-300 bg-white py-2 pl-4 pr-10 text-sm font-semibold text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
+                              >
+                                {roleOptions.map((option) => (
+                                  <option key={option} value={option}>
+                                    Make {option}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                {isSaving ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              className="ml-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-100"
+                              onClick={() => {
+                                if (window.confirm('Are you sure you want to delete this user?')) {
+                                  // Implement delete logic here
+                                  toast('Delete user feature not implemented')
+                                }
+                              }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </motion.tr>
                 )

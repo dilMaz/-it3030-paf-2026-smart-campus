@@ -1,5 +1,6 @@
 package com.smartcampus.smart_campus_api.model;
 
+import java.time.Instant;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -18,6 +19,10 @@ public class User {
     @JsonIgnore
     private String passwordHash;
     private String picture;
+    private String profileImageUrl;
+    private String bio;
     private String googleId;
     private List<String> roles;
+    private Instant createdAt;
+    private Instant updatedAt;
 }

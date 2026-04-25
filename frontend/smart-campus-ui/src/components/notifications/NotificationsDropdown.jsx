@@ -121,7 +121,7 @@ export default function NotificationsDropdown({ open, onClose, onUnreadCountChan
                     <button
                       type="button"
                       onClick={() => remove(notification.id)}
-                      className="rounded-md bg-rose-500 p-1.5 text-white transition hover:bg-rose-600"
+                      className="soft-delete-icon-button p-1.5"
                       title="Delete notification"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

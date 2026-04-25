@@ -1,0 +1,25 @@
+package com.smartcampus.smart_campus_api.resource.dto;
+
+import java.time.LocalDateTime;
+
+import com.smartcampus.smart_campus_api.resource.enums.ResourceStatus;
+import com.smartcampus.smart_campus_api.resource.enums.ResourceType;
+
+import lombok.Builder;
+import lombok.Value;
+
+@Value
+@Builder
+public class ResourceResponse {
+    String id;
+    String name;
+    ResourceType type;
+    Integer capacity;
+    String location;
+    LocalDateTime availableFrom;
+    LocalDateTime availableTo;
+    ResourceStatus status;
+    String description;
+    LocalDateTime createdAt;
+    LocalDateTime updatedAt;
+}

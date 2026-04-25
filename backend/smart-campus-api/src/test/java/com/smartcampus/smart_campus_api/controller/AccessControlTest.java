@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
@@ -24,14 +25,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.smartcampus.smart_campus_api.config.SecurityConfig;
+import com.smartcampus.smart_campus_api.exception.UnauthorizedAccessException;
 import com.smartcampus.smart_campus_api.model.Notification;
 import com.smartcampus.smart_campus_api.model.User;
 import com.smartcampus.smart_campus_api.repository.UserRepository;
+import com.smartcampus.smart_campus_api.service.JwtService;
 import com.smartcampus.smart_campus_api.service.NotificationService;
+import com.smartcampus.smart_campus_api.service.UserAuthorizationService;
 
 @WebMvcTest(controllers = { AuthController.class, NotificationController.class })
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = "app.admin.email=admin@campus.com")
+@SuppressWarnings("null")
 class AccessControlTest {
 
     @Autowired
@@ -44,6 +49,12 @@ class AccessControlTest {
     private NotificationService notificationService;
 
     @MockitoBean
+    private UserAuthorizationService userAuthorizationService;
+
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
     @SuppressWarnings("unused")
     private ClientRegistrationRepository clientRegistrationRepository;
 
@@ -53,6 +64,9 @@ class AccessControlTest {
 
     @Test
     void getUsersWithoutAuthenticationReturns401() throws Exception {
+        when(userAuthorizationService.requireAuthenticatedUser(any()))
+            .thenThrow(new UnauthorizedAccessException("Not authenticated"));
+
         mockMvc.perform(get("/api/auth/users"))
                 .andExpect(status().isUnauthorized());
     }
@@ -60,7 +74,7 @@ class AccessControlTest {
     @Test
     void getUsersAsNonAdminReturns403() throws Exception {
         User nonAdmin = user("u-1", "user1@campus.com", List.of("USER"));
-        when(userRepository.findByEmail("user1@campus.com")).thenReturn(Optional.of(nonAdmin));
+        when(userAuthorizationService.requireAuthenticatedUser(any())).thenReturn(nonAdmin);
 
         mockMvc.perform(get("/api/auth/users")
                         .with(oauth2Login().attributes(attrs -> attrs.put("email", "user1@campus.com"))))
@@ -117,6 +131,75 @@ class AccessControlTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value("student@campus.com"))
                 .andExpect(jsonPath("$.roles[0]").value("USER"));
+    }
+
+    @Test
+    void registerWithoutEmailReturns400() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"name\":\"Missing Email\"," +
+                                "\"password\":\"Password123!\"," +
+                                "\"confirmPassword\":\"Password123!\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void registerWithInvalidEmailReturns400() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"name\":\"Invalid Email\"," +
+                                "\"email\":\"invalid-email\"," +
+                                "\"password\":\"Password123!\"," +
+                                "\"confirmPassword\":\"Password123!\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void registerWithWeakPasswordReturns400() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"name\":\"Weak Password\"," +
+                                "\"email\":\"weak@campus.com\"," +
+                                "\"password\":\"password\"," +
+                                "\"confirmPassword\":\"password\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void loginWithInvalidPasswordReturns401() throws Exception {
+        User user = user("u-1", "student@campus.com", List.of("USER"));
+        user.setPasswordHash("$2a$10$7EqJtq98hPqEX7fNZaFWoOeR6Y7BoM4n5v1T7bGTFeoJq6Digw1u6");
+        when(userRepository.findAllByEmail("student@campus.com")).thenReturn(List.of(user));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"email\":\"student@campus.com\"," +
+                                "\"password\":\"WrongPassword123!\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void loginWithValidCredentialsReturnsUserAndToken() throws Exception {
+        User user = user("u-2", "valid@campus.com", List.of("USER"));
+        user.setName("Valid User");
+        user.setPasswordHash(new BCryptPasswordEncoder().encode("Password123!"));
+
+        when(userRepository.findAllByEmail("valid@campus.com")).thenReturn(List.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtService.generateToken(any(User.class))).thenReturn("jwt-token-value");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" +
+                                "\"email\":\"valid@campus.com\"," +
+                                "\"password\":\"Password123!\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.email").value("valid@campus.com"))
+                .andExpect(jsonPath("$.token").value("jwt-token-value"));
     }
 
     private User user(String id, String email, List<String> roles) {

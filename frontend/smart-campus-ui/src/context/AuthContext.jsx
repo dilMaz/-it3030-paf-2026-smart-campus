@@ -1,13 +1,20 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { authService } from '../services/authService'
+import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY } from '../constants/authStorage'
 
 export const AuthContext = createContext(null)
-const STORAGE_KEY = 'smartCampusUser'
-const SESSION_CHECK_TIMEOUT_MS = 5000
+const SESSION_CHECK_TIMEOUT_MS = 10000
+
+function normalizeRole(role) {
+  if (typeof role !== 'string') return null
+  const value = role.trim()
+  if (!value) return null
+  return value.replace(/^ROLE_/, '').toUpperCase()
+}
 
 function getSavedUser() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
+    return JSON.parse(localStorage.getItem(AUTH_USER_STORAGE_KEY) || 'null')
   } catch {
     return null
   }
@@ -15,14 +22,14 @@ function getSavedUser() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(getSavedUser)
-  const [initializing, setInitializing] = useState(() => !getSavedUser())
+  const [initializing, setInitializing] = useState(true)
 
   const saveUser = useCallback((nextUser) => {
     setUser(nextUser)
     if (nextUser) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser))
+      localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(nextUser))
     } else {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(AUTH_USER_STORAGE_KEY)
     }
   }, [])
 
@@ -33,6 +40,7 @@ export function AuthProvider({ children }) {
       return currentUser
     } catch {
       saveUser(null)
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
       return null
     }
   }, [saveUser])
@@ -41,14 +49,7 @@ export function AuthProvider({ children }) {
     let active = true
     let timeoutId
 
-    if (user) {
-      setInitializing(false)
-      return () => {
-        active = false
-      }
-    }
-
-    // Safety net: never keep the app blocked on a long /me request.
+    // Always validate the backend session so a stale local cache cannot bypass auth.
     timeoutId = setTimeout(() => {
       if (active) {
         setInitializing(false)
@@ -66,10 +67,20 @@ export function AuthProvider({ children }) {
       active = false
       clearTimeout(timeoutId)
     }
-  }, [refreshUser, user])
+  }, [refreshUser])
 
-  const login = useCallback(async (credentials) => {
-    const loggedInUser = await authService.login(credentials)
+  const login = useCallback(async (credentialsOrEmail, password) => {
+    const credentials = typeof credentialsOrEmail === 'string'
+      ? { email: credentialsOrEmail, password }
+      : credentialsOrEmail
+
+    const loginResponse = await authService.login(credentials)
+    const loggedInUser = loginResponse?.user || loginResponse
+
+    if (loginResponse?.token) {
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, loginResponse.token)
+    }
+
     saveUser(loggedInUser)
     return loggedInUser
   }, [saveUser])
@@ -85,9 +96,13 @@ export function AuthProvider({ children }) {
       // Ignore API logout failures and still clear local state.
     }
     saveUser(null)
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
   }, [saveUser])
 
-  const roles = useMemo(() => (Array.isArray(user?.roles) ? user.roles : []), [user])
+  const roles = useMemo(() => {
+    if (!Array.isArray(user?.roles)) return []
+    return user.roles.map(normalizeRole).filter(Boolean)
+  }, [user])
 
   const value = useMemo(() => ({
     user,

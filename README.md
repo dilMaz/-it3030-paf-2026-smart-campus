@@ -87,6 +87,7 @@ npm run dev
 ### **Quick Reference**
 - **API Endpoints:** [MEMBER4_ENDPOINTS.md](docs/MEMBER4_ENDPOINTS.md)
 - **Full Implementation Guide:** [MEMBER4_IMPLEMENTATION.md](docs/MEMBER4_IMPLEMENTATION.md)
+- **Local Auth Flow:** [AUTH_LOCAL_FLOW.md](docs/AUTH_LOCAL_FLOW.md)
 - **Test Evidence:** Run `mvn -Dtest=AccessControlTest test` in backend/
 
 ### **API Statistics**
